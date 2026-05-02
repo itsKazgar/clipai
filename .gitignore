@@ -1,0 +1,8 @@
+clips/
+*.ts
+*.mp4
+.clipai/
+.env
+__pycache__/
+*.pyc
+venv/
