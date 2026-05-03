@@ -1,46 +1,53 @@
-# CLIP.AI
+# CLIP.AI v2
 
-> AI-powered stream clipping. Watch your favorite streamers and auto-save the best moments as shareable video clips.
+> AI-powered stream clipping. Watches live streams, detects hype moments, saves shareable clips automatically.
 
 **[Live Demo](https://itsKazgar.github.io/clipai)** · **[$CLIP on pump.fun](https://pump.fun/coin/AgPcsPV2X1J4beYTGpc55WgibPuJcJwqWiXvHn5pump)**
 
+---
+
+## Try it right now (no token needed)
+
+```bash
+git clone https://github.com/itsKazgar/clipai
+cd clipai
+pip install -r requirements.txt
+python3 demo_live.py xqc --keywords "clip that,lets go"
 ```
- ██████╗██╗     ██╗██████╗      █████╗ ██╗
-██╔════╝██║     ██║██╔══██╗    ██╔══██╗██║
-██║     ██║     ██║██████╔╝    ███████║██║
-██║     ██║     ██║██╔═══╝     ██╔══██║██║
-╚██████╗███████╗██║██║         ██║  ██║██║
- ╚═════╝╚══════╝╚═╝╚═╝         ╚═╝  ╚═╝╚═╝
-```
+
+Connects to real Twitch chat instantly. No ffmpeg, no API key, no wallet needed.
 
 ---
 
-## What it does
+## What's new in v2
 
-CLIP.AI watches a live stream and automatically clips the best moments — hype plays, funny fails, clutch moments — and saves them as `.mp4` files you can share anywhere.
-
-- **Autopilot** — Claude AI + Whisper listen to audio and chat, score moments 1–10, and clip anything above a threshold automatically
-- **Keyword triggers** — type words like `clip that` or `lets go` and it clips the last 60 seconds instantly
-- **Manual mode** — full CLI control to clip exact timestamps with custom labels
-- **Token gated** — hold 1,000 $CLIP on Solana to unlock (or use `--demo` to try for free)
+- **Multi-LLM** — Claude, OpenAI, Gemini, Ollama, Hermes3, LLaMA, Mistral
+- **Auto vertical crop** — 9:16 for TikTok, Reels, Shorts
+- **Whisper subtitles** — burned in with timestamps, 3 styles
+- **Basic effects** — fade in/out, intro card
+- **One-click export** — YouTube, TikTok, Twitter/X, Discord
+- **OBS plugin** — use OBS replay buffer instead of streamlink
+- **Live dashboard** — real-time hype meter, chat feed, clip log
+- **Community prompts** — shared library of clip prompts, upvoting
+- **Clip gallery** — log every session, browse top moments
 
 ---
 
 ## Requirements
 
 - Python 3.9+
-- [ffmpeg](https://ffmpeg.org/download.html) — for extracting clips from the stream buffer
-- [streamlink](https://streamlink.github.io/) — for capturing the live stream
+- ffmpeg — for post-processing (optional for demo)
+- streamlink — for stream capture (optional if using OBS)
 
-Install ffmpeg:
 ```bash
+# Ubuntu / Debian / WSL
+sudo apt install ffmpeg
+
 # macOS
 brew install ffmpeg
 
-# Ubuntu / Debian
-sudo apt install ffmpeg
-
-# Windows — download from https://ffmpeg.org/download.html
+# then
+pip install streamlink
 ```
 
 ---
@@ -55,155 +62,158 @@ pip install -r requirements.txt
 
 ---
 
-## Quick start (no token needed)
+## Quick start
 
 ```bash
-# Try it with --demo — no $CLIP required
-python src/clipai.py watch twitch.tv/xqc --autopilot --demo
+# Demo — real Twitch chat, no token needed
+python3 demo_live.py xqc
+python3 demo_live.py xqc --keywords "clip that,lets go"
+python3 demo_live.py xqc --prompt "funny moments"
 
-# With keyword triggers
-python src/clipai.py watch twitch.tv/xqc --autopilot --keywords "clip that,lets go" --demo
+# Full autopilot (needs streamlink + ffmpeg)
+python3 src/clipai.py watch twitch.tv/xqc --autopilot --demo
 
-# With a specific AI prompt
-python src/clipai.py watch kick.com/streamer --autopilot --prompt "funny moments and fails" --demo
+# v2 full featured
+python3 src/clipai_v2.py watch twitch.tv/xqc --autopilot --demo
 ```
-
-Clips are saved to `./clips/` as `.mp4` files.
 
 ---
 
-## Setup (full mode)
-
-**Step 1 — Get an Anthropic API key**
-
-Sign up at [console.anthropic.com](https://console.anthropic.com) and create an API key.
+## Full setup
 
 ```bash
-python src/clipai.py config --api-key YOUR_ANTHROPIC_KEY
-```
+# Anthropic API key (Claude)
+python3 src/clipai_v2.py config --api-key YOUR_KEY
 
-**Step 2 — Get $CLIP and link your wallet**
+# Or use a different LLM
+python3 src/clipai_v2.py config --llm ollama
+python3 src/clipai_v2.py config --llm openai --openai-key YOUR_KEY
+python3 src/clipai_v2.py config --llm gemini --gemini-key YOUR_KEY
 
-Buy $CLIP on [pump.fun](https://pump.fun/coin/AgPcsPV2X1J4beYTGpc55WgibPuJcJwqWiXvHn5pump) — you need 1,000 to unlock full mode.
-
-```bash
-python src/clipai.py config --wallet YOUR_SOLANA_WALLET_ADDRESS
-```
-
-**Step 3 — Clip**
-
-```bash
-python src/clipai.py watch twitch.tv/streamer --autopilot
+# Solana wallet for $CLIP token gate
+python3 src/clipai_v2.py config --wallet YOUR_WALLET
 ```
 
 ---
 
 ## Usage
 
-### Autopilot mode
-AI watches the stream and clips automatically. Best for long sessions where you don't want to babysit it.
-
+### Autopilot
 ```bash
-python src/clipai.py watch twitch.tv/streamer --autopilot
-python src/clipai.py watch twitch.tv/streamer --autopilot --prompt "clutch plays and insane moments"
-python src/clipai.py watch twitch.tv/streamer --autopilot --keywords "clip that,no way,lets go"
+# Basic
+python3 src/clipai_v2.py watch twitch.tv/xqc --autopilot
+
+# With prompt from library
+python3 src/clipai_v2.py watch twitch.tv/xqc --autopilot --prompt 1
+
+# With keywords
+python3 src/clipai_v2.py watch twitch.tv/xqc --autopilot --keywords "clip that,lets go"
+
+# With post-processing
+python3 src/clipai_v2.py watch twitch.tv/xqc --autopilot --vertical --subtitles --effects
+
+# Export straight to socials
+python3 src/clipai_v2.py watch twitch.tv/xqc --autopilot --export youtube,discord
+
+# Use Ollama locally (no API key needed)
+python3 src/clipai_v2.py watch twitch.tv/xqc --autopilot --llm ollama
+
+# Use OBS replay buffer
+python3 src/clipai_v2.py watch twitch.tv/xqc --autopilot --obs
 ```
 
 ### Manual mode
-You control when to clip. Good for when you're watching along and want specific moments.
-
 ```bash
-python src/clipai.py watch twitch.tv/streamer --manual
-```
-
-Commands inside manual mode:
-```
-c              → clip last 60 seconds
-c 30           → clip last 30 seconds
-c 120 180      → clip from 2:00 to 3:00
-l clutch play  → label the next clip "clutch play"
-q              → quit
-```
-
-### Other commands
+python3 src/clipai_v2.py watch twitch.tv/xqc --manual
+```### Community
 ```bash
-# See supported platforms
-python src/clipai.py platforms
+# Browse prompt library
+python3 src/clipai_v2.py prompts
 
-# Check your config
-python src/clipai.py config --show
+# Open community menu
+python3 src/clipai_v2.py community
 ```
 
----
-
-## Real-time Whisper transcription (optional)
-
-By default autopilot uses a simulated feed. To enable real audio transcription, install the Whisper dependencies:
-
+### OBS setup
 ```bash
-pip install openai-whisper sounddevice
+python3 src/clipai_v2.py obs-setup
 ```
-
-Then run without `--demo` — `whisper_module.py` will automatically kick in and transcribe the stream audio in real time, feeding it to Claude for analysis.
-
-> Note: Whisper `base` model runs fine on CPU. Use `small` or `medium` for better accuracy at the cost of speed.
 
 ---
 
 ## Supported platforms
 
-| Platform | Example URL |
-|----------|-------------|
-| Twitch | `twitch.tv/streamer` |
-| YouTube | `youtube.com/watch?v=...` |
-| Kick | `kick.com/streamer` |
-| Rumble | `rumble.com/streamer` |
-| TikTok Live | `tiktok.com/@streamer/live` |
-| PumpFun | `pumpfun.io/streamer` |
-
-Platform support depends on streamlink. Run `streamlink --plugins` to see everything available.
+| Platform | Status |
+|----------|--------|
+| Twitch | ✅ Full support |
+| Kick | ✅ Full support |
+| YouTube Live | ✅ Full support |
+| Rumble | ⚠️ Hit or miss |
+| TikTok Live | ⚠️ Hit or miss |
+| PumpFun | ❌ Not supported |
 
 ---
 
-## Output
+## Supported LLMs
 
-Clips are saved to `./clips/` (or whatever you set with `--output`) as `.mp4` files:
+| Provider | How to use |
+|----------|-----------|
+| Claude (default) | `--llm claude` + Anthropic API key |
+| OpenAI / GPT-4o | `--llm openai` + OpenAI API key |
+| Gemini | `--llm gemini` + Gemini API key |
+| Ollama (local) | `--llm ollama` — runs on your machine, free |
+| Hermes3 | `--llm hermes3` — via Ollama |
+| LLaMA | `--llm llama` — via Ollama |
+| Mistral | `--llm mistral` — via Ollama |
 
+Run any LLM locally with Ollama: https://ollama.com
+
+---
+
+## Post-processing flags
+
+| Flag | What it does |
+|------|-------------|
+| `--vertical` | Auto crop to 9:16 for TikTok/Reels/Shorts |
+| `--subtitles` | Burn in Whisper subtitles with timestamps |
+| `--effects` | Add fade in/out and intro card |
+| `--subtitle-style tiktok` | Style: tiktok, minimal, bold |
+
+---
+
+## Social export
+
+```bash
+# Discord webhook
+python3 src/clipai_v2.py config --discord-webhook YOUR_WEBHOOK_URL
+
+# Then export automatically
+python3 src/clipai_v2.py watch twitch.tv/xqc --autopilot --export discord
 ```
-clips/
-  clip_clutch_play_20250501_143022.mp4
-  clip_funny_fail_20250501_143455.mp4
-  clip_hype_moment_20250501_144102.mp4
-```
+
+YouTube and TikTok require API approval from their developer portals.
 
 ---
 
 ## $CLIP token
 
-CLIP.AI is token-gated by $CLIP on Solana. Hold 1,000 $CLIP in your wallet to unlock full mode. Balance is verified via Solana RPC on every launch.
-
+Hold 1,000 $CLIP on Solana to unlock full mode.
 Contract: `AgPcsPV2X1J4beYTGpc55WgibPuJcJwqWiXvHn5pump`
-
 Buy on [pump.fun](https://pump.fun/coin/AgPcsPV2X1J4beYTGpc55WgibPuJcJwqWiXvHn5pump)
 
-No token? Use `--demo` to try everything for free.
+Use `--demo` to try everything free.
 
 ---
 
 ## How it works
 
-1. **streamlink** captures the live stream into a rolling `.ts` buffer on disk
-2. **Whisper** (optional) transcribes the audio in 15-second chunks
-3. **Claude AI** reads the transcript + chat, scores moments, and triggers clips when score ≥ 7
-4. **ffmpeg** extracts the relevant segment from the buffer and saves it as `.mp4`
-5. You get a folder full of shareable clips
+1. streamlink (or OBS) captures the stream into a rolling buffer
+2. Whisper transcribes audio in 15-second chunks
+3. Your chosen LLM scores moments and triggers clips at 7+/10
+4. ffmpeg cuts the clip and saves as .mp4
+5. Post-processing crops, adds subtitles and effects
+6. One-click export sends it to your socials
 
 ---
 
-## License
-
-MIT — do whatever you want with it.
-
----
-
-*Built with Claude AI · Whisper · streamlink · ffmpeg · powered by $CLIP*
+MIT · Claude · Whisper · streamlink · ffmpeg · OBS · $CLIP
