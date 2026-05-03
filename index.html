@@ -21,13 +21,22 @@ header{border-bottom:1px solid var(--border);padding:14px 0}
 .term{background:var(--bg2);border:1px solid var(--border);margin:0 0 32px}
 .tbar{background:var(--bg3);border-bottom:1px solid var(--border);padding:8px 14px;display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted)}
 .dot{width:9px;height:9px;border-radius:50%}
-.tbody{padding:14px 16px;min-height:220px;font-size:11px;overflow:hidden}
+
+/* FIX 1: Lock terminal height so it never grows or shrinks */
+.tbody{
+  padding:14px 16px;
+  height:260px;          /* fixed height — never changes */
+  min-height:unset;      /* remove the old min-height */
+  max-height:260px;      /* also cap it */
+  font-size:11px;
+  overflow:hidden;       /* hide any overflow — no scrollbar, no resize */
+}
+
 .ln{margin-bottom:2px;word-break:break-word}
 .cur{display:inline-block;width:7px;height:12px;background:var(--cyan);vertical-align:middle;animation:bl 1s step-end infinite}
 @keyframes bl{50%{opacity:0}}
 .sec{font-size:10px;letter-spacing:.18em;color:var(--muted);text-transform:uppercase;margin-bottom:12px}
 .sec::before{content:"// ";color:var(--dim)}
-
 /* live viewer */
 .live-box{border:1px solid var(--border);margin-bottom:32px;overflow:hidden}
 .live-top{background:var(--bg3);border-bottom:1px solid var(--border);padding:10px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
@@ -60,7 +69,6 @@ header{border-bottom:1px solid var(--border);padding:14px 0}
 .live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block;animation:pulse 1.5s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 .offline-dot{width:7px;height:7px;border-radius:50%;background:var(--muted);display:inline-block}
-
 /* rest of layout */
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:1px;background:var(--border);border:1px solid var(--border);margin-bottom:32px}
 .card{background:var(--bg2);padding:16px}
@@ -86,14 +94,16 @@ header{border-bottom:1px solid var(--border);padding:14px 0}
 footer{border-top:1px solid var(--border);padding:18px 0;font-size:11px;color:var(--muted);text-align:center}
 footer a{color:var(--cyan);text-decoration:none}
 @media(max-width:480px){.ascii{font-size:5.5px}.grid{grid-template-columns:1fr}}
+
+/* AI loading state for terminal */
+.term-loading{color:var(--muted);font-size:11px;padding:8px 0;opacity:0.7}
 </style>
 </head>
 <body>
 <header><div class=w><div class=tb>
-  <div class=logo>// <span>CLIP.AI</span></div>
-  <div class=badge>$CLIP &middot; v2.0.0</div>
+<div class=logo>// <span>CLIP.AI</span></div>
+<div class=badge>$CLIP &middot; v2.0.0</div>
 </div></div></header>
-
 <div class=w>
 <div class=banner>
 <pre class=ascii> ██████╗██╗     ██╗██████╗      █████╗ ██╗
@@ -106,114 +116,114 @@ footer a{color:var(--cyan);text-decoration:none}
 
 <!-- TERMINAL -->
 <div class=term>
-  <div class=tbar>
-    <div class=dot style=background:#ff5f57></div>
-    <div class=dot style=background:#ffbd2e></div>
-    <div class=dot style=background:#28ca41></div>
-    <span style=margin-left:6px>bash &mdash; clipai v2</span>
-    <span style="margin-left:auto;color:#00ff88;font-size:10px">&#9679; LIVE</span>
-  </div>
-  <div class=tbody id=term></div>
+<div class=tbar>
+<div class=dot style=background:#ff5f57></div>
+<div class=dot style=background:#ffbd2e></div>
+<div class=dot style=background:#28ca41></div>
+<span style=margin-left:6px>bash &mdash; clipai v2</span>
+<span style="margin-left:auto;color:#00ff88;font-size:10px">&#9679; LIVE</span>
+</div>
+<div class=tbody id=term><div class=term-loading>initializing...</div></div>
 </div>
 
 <!-- LIVE VIEWER -->
 <div class=sec>watch live &amp; see real chat</div>
 <div class=live-box>
-  <div class=live-top>
-    <div class=live-tabs>
-      <div class=ltab id=tab-kick onclick="switchPlatform('kick')" >Kick</div>
-      <div class=ltab id=tab-twitch onclick="switchPlatform('twitch')">Twitch</div>
-    </div>
-    <div class=live-input>
-      <input id=chan-input placeholder="streamer name e.g. xqc" onkeydown="if(event.key==='Enter')loadLive()">
-      <button class=btn onclick=loadLive()>&#9654; WATCH LIVE</button>
-    </div>
-  </div>
-  <div class=live-body>
-    <div class=live-stream>
-      <div id=embed-area style="display:flex;align-items:center;justify-content:center;height:260px;color:var(--muted);font-size:11px">
-        enter a streamer name above
-      </div>
-      <div class=stream-info id=stream-info style=display:none>
-        <div class=si>status <span id=si-status>—</span></div>
-        <div class=si>viewers <span id=si-viewers>—</span></div>
-        <div class=si>game <span id=si-game>—</span></div>
-      </div>
-    </div>
-    <div class=live-chat-panel>
-      <div class=chat-header>
-        <span id=chat-label style=color:var(--muted)>chat will appear here</span>
-        <div class=hype-bar-wrap>
-          <span style=color:var(--muted);font-size:10px>hype</span>
-          <div class=hype-bar-bg><div class=hype-bar-fill id=hype-fill style=width:0%></div></div>
-          <span id=hype-score style=color:var(--green)>0</span>
-        </div>
-      </div>
-      <div class=chat-feed id=chat-feed>
-        <div class=chat-status>waiting for stream...</div>
-      </div>
-    </div>
-  </div>
+<div class=live-top>
+<div class=live-tabs>
+<div class=ltab id=tab-kick onclick="switchPlatform('kick')" >Kick</div>
+<div class=ltab id=tab-twitch onclick="switchPlatform('twitch')">Twitch</div>
+</div>
+<div class=live-input>
+<input id=chan-input placeholder="streamer name e.g. xqc" onkeydown="if(event.key==='Enter')loadLive()">
+<button class=btn onclick=loadLive()>&#9654; WATCH LIVE</button>
+</div>
+</div>
+<div class=live-body>
+<div class=live-stream>
+<div id=embed-area style="display:flex;align-items:center;justify-content:center;height:260px;color:var(--muted);font-size:11px">
+enter a streamer name above
+</div>
+<div class=stream-info id=stream-info style=display:none>
+<div class=si>status <span id=si-status>—</span></div>
+<div class=si>viewers <span id=si-viewers>—</span></div>
+<div class=si>game <span id=si-game>—</span></div>
+</div>
+</div>
+<div class=live-chat-panel>
+<div class=chat-header>
+<span id=chat-label style=color:var(--muted)>chat will appear here</span>
+<div class=hype-bar-wrap>
+<span style=color:var(--muted);font-size:10px>hype</span>
+<div class=hype-bar-bg><div class=hype-bar-fill id=hype-fill style=width:0%></div></div>
+<span id=hype-score style=color:var(--green)>0</span>
+</div>
+</div>
+<div class=chat-feed id=chat-feed>
+<div class=chat-status>waiting for stream...</div>
+</div>
+</div>
+</div>
 </div>
 
 <!-- QUICK START -->
 <div class=sec>try it yourself</div>
 <div class=qs>
-  <div class=qs-t>&#9654; works with python only &mdash; no token needed</div>
-  <div class=qs-row><span class=qs-n>01.</span><div class=qs-cmd>git clone https://github.com/itsKazgar/clipai && cd clipai</div></div>
-  <div class=qs-row><span class=qs-n>02.</span><div class=qs-cmd>pip install -r requirements.txt</div></div>
-  <div class=qs-row><span class=qs-n>03.</span><div class=qs-cmd>python3 demo_live.py xqc --keywords "clip that,lets go"</div></div>
-  <div style="margin-top:12px;font-size:11px;color:var(--muted)">reads real live twitch chat &middot; detects hype &middot; logs clip moments &middot; no ffmpeg needed</div>
+<div class=qs-t>&#9654; works with python only &mdash; no token needed</div>
+<div class=qs-row><span class=qs-n>01.</span><div class=qs-cmd>git clone https://github.com/itsKazgar/clipai && cd clipai</div></div>
+<div class=qs-row><span class=qs-n>02.</span><div class=qs-cmd>pip install -r requirements.txt</div></div>
+<div class=qs-row><span class=qs-n>03.</span><div class=qs-cmd>python3 demo_live.py xqc --keywords "clip that,lets go"</div></div>
+<div style="margin-top:12px;font-size:11px;color:var(--muted)">reads real live twitch chat &middot; detects hype &middot; logs clip moments &middot; no ffmpeg needed</div>
 </div>
 
 <!-- FEATURES -->
 <div class=sec>features</div>
 <div class=grid>
-  <div class=card><div class=ci>[ LIVE ]</div><div class=ct>Real Chat Reader</div><div class=cd>Connects to actual Twitch IRC. Reads real messages as they happen, no login needed.</div></div>
-  <div class=card><div class=ci>[ AI ]</div><div class=ct>Multi-LLM</div><div class=cd>Claude, GPT-4o, Gemini, Ollama, Hermes3, LLaMA, Mistral. Swap with one flag.</div></div>
-  <div class=card><div class=ci>[ # ]</div><div class=ct>Keyword Triggers</div><div class=cd>Chat says "clip that" — clips the last 60 seconds instantly.</div></div>
-  <div class=card><div class=ci>[ 9:16 ]</div><div class=ct>Auto Vertical Crop</div><div class=cd>One flag turns any clip into a TikTok/Reels/Shorts ready vertical video.</div></div>
-  <div class=card><div class=ci>[ CC ]</div><div class=ct>Whisper Subtitles</div><div class=cd>Real timestamps burned in. 3 styles: TikTok, minimal, bold.</div></div>
-  <div class=card><div class=ci>[ ▶ ]</div><div class=ct>Social Export</div><div class=cd>One-click send to YouTube, TikTok, Twitter/X, Discord.</div></div>
-  <div class=card><div class=ci>[ OBS ]</div><div class=ct>OBS Plugin</div><div class=cd>Use OBS replay buffer instead of streamlink. Better quality.</div></div>
-  <div class=card><div class=ci>[ ~ ]</div><div class=ct>Hype Detection</div><div class=cd>Tracks chat velocity, caps, emotes. Auto-clips spike moments.</div></div>
-  <div class=card><div class=ci>[ ◈ ]</div><div class=ct>Live Dashboard</div><div class=cd>Real-time hype meter, chat feed, clip log in your terminal.</div></div>
-  <div class=card><div class=ci>[ ♡ ]</div><div class=ct>Community</div><div class=cd>Shared prompt library. Upvote prompts. Browse clip gallery.</div></div>
-  <div class=card><div class=ci>[ $ ]</div><div class=ct>$CLIP Token Gate</div><div class=cd>Hold $CLIP on Solana to unlock. Use --demo to try free.</div></div>
-  <div class=card><div class=ci>[ ⚡ ]</div><div class=ct>Multi-platform</div><div class=cd>Twitch &middot; Kick &middot; YouTube &middot; Rumble &middot; TikTok Live</div></div>
+<div class=card><div class=ci>[ LIVE ]</div><div class=ct>Real Chat Reader</div><div class=cd>Connects to actual Twitch IRC. Reads real messages as they happen, no login needed.</div></div>
+<div class=card><div class=ci>[ AI ]</div><div class=ct>Multi-LLM</div><div class=cd>Claude, GPT-4o, Gemini, Ollama, Hermes3, LLaMA, Mistral. Swap with one flag.</div></div>
+<div class=card><div class=ci>[ # ]</div><div class=ct>Keyword Triggers</div><div class=cd>Chat says "clip that" — clips the last 60 seconds instantly.</div></div>
+<div class=card><div class=ci>[ 9:16 ]</div><div class=ct>Auto Vertical Crop</div><div class=cd>One flag turns any clip into a TikTok/Reels/Shorts ready vertical video.</div></div>
+<div class=card><div class=ci>[ CC ]</div><div class=ct>Whisper Subtitles</div><div class=cd>Real timestamps burned in. 3 styles: TikTok, minimal, bold.</div></div>
+<div class=card><div class=ci>[ ▶ ]</div><div class=ct>Social Export</div><div class=cd>One-click send to YouTube, TikTok, Twitter/X, Discord.</div></div>
+<div class=card><div class=ci>[ OBS ]</div><div class=ct>OBS Plugin</div><div class=cd>Use OBS replay buffer instead of streamlink. Better quality.</div></div>
+<div class=card><div class=ci>[ ~ ]</div><div class=ct>Hype Detection</div><div class=cd>Tracks chat velocity, caps, emotes. Auto-clips spike moments.</div></div>
+<div class=card><div class=ci>[ ◈ ]</div><div class=ct>Live Dashboard</div><div class=cd>Real-time hype meter, chat feed, clip log in your terminal.</div></div>
+<div class=card><div class=ci>[ ♡ ]</div><div class=ct>Community</div><div class=cd>Shared prompt library. Upvote prompts. Browse clip gallery.</div></div>
+<div class=card><div class=ci>[ $ ]</div><div class=ct>$CLIP Token Gate</div><div class=cd>Hold $CLIP on Solana to unlock. Use --demo to try free.</div></div>
+<div class=card><div class=ci>[ ⚡ ]</div><div class=ct>Multi-platform</div><div class=cd>Twitch &middot; Kick &middot; YouTube &middot; Rumble &middot; TikTok Live</div></div>
 </div>
 
 <!-- LLMS -->
 <div class=sec>supported llms</div>
 <div class=llms>
-  <div class=llm>Claude</div><div class=llm>GPT-4o</div><div class=llm>Gemini</div>
-  <div class=llm>Ollama</div><div class=llm>Hermes3</div><div class=llm>LLaMA</div><div class=llm>Mistral</div>
+<div class=llm>Claude</div><div class=llm>GPT-4o</div><div class=llm>Gemini</div>
+<div class=llm>Ollama</div><div class=llm>Hermes3</div><div class=llm>LLaMA</div><div class=llm>Mistral</div>
 </div>
 
 <!-- INSTALL -->
 <div class=sec>install &amp; run</div>
 <div class=cb><code>git clone https://github.com/itsKazgar/clipai</code><button class=cpb onclick="cpy(this,'git clone https://github.com/itsKazgar/clipai')">copy</button></div>
 <div class=cb><code>pip install -r requirements.txt</code><button class=cpb onclick="cpy(this,'pip install -r requirements.txt')">copy</button></div>
-<div class=cb><code>python3 demo_live.py xqc --keywords "clip that,lets go"</code><button class=cpb onclick="cpy(this,'python3 demo_live.py xqc --keywords "clip that,lets go"')">copy</button></div>
+<div class=cb><code>python3 demo_live.py xqc --keywords "clip that,lets go"</code><button class=cpb onclick="cpy(this,'python3 demo_live.py xqc --keywords &quot;clip that,lets go&quot;')">copy</button></div>
 <div class=cb><code>python3 src/clipai_v2.py watch twitch.tv/xqc --autopilot --vertical --subtitles --demo</code><button class=cpb onclick="cpy(this,'python3 src/clipai_v2.py watch twitch.tv/xqc --autopilot --vertical --subtitles --demo')">copy</button></div>
 
 <!-- TOKEN -->
 <div class=sec>$clip token &middot; solana</div>
 <div class=coin>
-  <div class=ca-label>contract address</div>
-  <div class=ca-addr>AgPcsPV2X1J4beYTGpc55WgibPuJcJwqWiXvHn5pump</div>
-  <div class=coin-steps>
-    <span style=color:var(--cyan)>01.</span> Buy $CLIP on <a href=https://pump.fun/coin/AgPcsPV2X1J4beYTGpc55WgibPuJcJwqWiXvHn5pump style=color:var(--yellow)>pump.fun</a><br>
-    <span style=color:var(--cyan)>02.</span> <code style=color:var(--green)>python3 src/clipai_v2.py config --wallet YOUR_WALLET</code><br>
-    <span style=color:var(--cyan)>03.</span> Balance verified via Solana RPC on every launch<br>
-    <span style=color:var(--cyan)>04.</span> Clip everything
-  </div>
+<div class=ca-label>contract address</div>
+<div class=ca-addr>AgPcsPV2X1J4beYTGpc55WgibPuJcJwqWiXvHn5pump</div>
+<div class=coin-steps>
+<span style=color:var(--cyan)>01.</span> Buy $CLIP on <a href=https://pump.fun/coin/AgPcsPV2X1J4beYTGpc55WgibPuJcJwqWiXvHn5pump style=color:var(--yellow)>pump.fun</a><br>
+<span style=color:var(--cyan)>02.</span> <code style=color:var(--green)>python3 src/clipai_v2.py config --wallet YOUR_WALLET</code><br>
+<span style=color:var(--cyan)>03.</span> Balance verified via Solana RPC on every launch<br>
+<span style=color:var(--cyan)>04.</span> Clip everything
+</div>
 </div>
 </div>
 
 <footer>
-  CLIP.AI v2 &middot; MIT &middot; <a href=https://github.com/itsKazgar/clipai>github.com/itsKazgar/clipai</a>
-  &middot; powered by <span style=color:var(--yellow)>$CLIP</span>
+CLIP.AI v2 &middot; MIT &middot; <a href=https://github.com/itsKazgar/clipai>github.com/itsKazgar/clipai</a>
+&middot; powered by <span style=color:var(--yellow)>$CLIP</span>
 </footer>
 
 <script>
@@ -229,7 +239,7 @@ function switchPlatform(p) {
   platform = p;
   document.getElementById('tab-kick').classList.toggle('active', p==='kick');
   document.getElementById('tab-twitch').classList.toggle('active', p==='twitch');
-  document.getElementById('chan-input').placeholder = p==='kick' ? 'streamer name e.g. xqc' : 'streamer name e.g. xqc';
+  document.getElementById('chan-input').placeholder = 'streamer name e.g. xqc';
 }
 switchPlatform('kick');
 
@@ -243,13 +253,11 @@ function loadLive() {
   document.getElementById('chat-feed').innerHTML = '<div class=chat-status>connecting...</div>';
   document.getElementById('hype-fill').style.width = '0%';
   document.getElementById('hype-score').textContent = '0';
-
   if (platform === 'kick') {
     loadKick(chan);
   } else {
     loadTwitch(chan);
   }
-
   hypeInterval = setInterval(decayHype, 2000);
 }
 
@@ -257,15 +265,12 @@ function loadLive() {
 async function loadKick(chan) {
   const embedArea = document.getElementById('embed-area');
   embedArea.innerHTML = `<iframe src="https://player.kick.com/${chan}" width="100%" height="260" frameborder="0" allowfullscreen></iframe>`;
-
-  // fetch stream info
   try {
     const r = await fetch(`https://kick.com/api/v1/channels/${chan}`);
     const d = await r.json();
     const live = d.livestream !== null;
     const viewers = live ? d.livestream.viewer_count.toLocaleString() : '—';
     const game = live ? (d.livestream.categories?.[0]?.name || '—') : '—';
-    const title = live ? d.livestream.session_title : 'offline';
     document.getElementById('stream-info').style.display = 'flex';
     document.getElementById('si-status').innerHTML = live
       ? '<span class=live-dot></span> LIVE'
@@ -273,7 +278,6 @@ async function loadKick(chan) {
     document.getElementById('si-viewers').textContent = viewers;
     document.getElementById('si-game').textContent = game;
     document.getElementById('chat-label').textContent = live ? `#${chan} — kick chat` : `${chan} is offline`;
-
     if (live && d.id) {
       connectKickChat(d.id, chan);
     } else {
@@ -285,16 +289,15 @@ async function loadKick(chan) {
 }
 
 function connectKickChat(channelId, chan) {
-  // Kick uses Pusher for chat
   const script = document.createElement('script');
   script.src = 'https://js.pusher.com/8.2.0/pusher.min.js';
   script.onload = () => {
     try {
       const pusher = new Pusher('32cbd69e4b950bf97679', { cluster: 'us2' });
       const channel = pusher.subscribe(`channel.${channelId}`);
-      channel.bind('App\Events\ChatMessageEvent', data => {
+      channel.bind('App\\Events\\ChatMessageEvent', data => {
         const user = data.sender?.username || 'user';
-        const msg  = data.content || '';
+        const msg = data.content || '';
         addChatMsg(user, msg);
       });
       document.getElementById('chat-label').textContent = `#${chan} — kick live chat`;
@@ -316,11 +319,8 @@ function loadTwitch(chan) {
   document.getElementById('si-status').innerHTML = '<span class=live-dot></span> LIVE';
   document.getElementById('si-viewers').textContent = 'open twitch for count';
   document.getElementById('si-game').textContent = '—';
-
-  // Twitch chat via embed iframe
-  const chatFrame = document.createElement('div');
   document.getElementById('chat-feed').innerHTML =
-    `<div class=chat-status>twitch chat requires login &mdash; use Kick for live chat demo</div>
+    `<div class=chat-status>twitch chat requires login — use Kick for live chat demo</div>
      <div class=chat-status style="margin-top:8px">stream embedded above via Twitch player</div>`;
 }
 
@@ -332,31 +332,24 @@ function addChatMsg(user, msg) {
   const feed = document.getElementById('chat-feed');
   const isHype = HYPE_WORDS.some(w => msg.toLowerCase().includes(w));
   const isCaps = msg.length > 4 && msg === msg.toUpperCase();
-
   const div = document.createElement('div');
   div.className = 'chat-msg';
   div.innerHTML = `<span class=chat-user>${user}</span> <span class=chat-text>${msg.slice(0,80)}</span>`;
   feed.appendChild(div);
-
-  // hype scoring
   msgCount++;
   if (isHype) hypeScore = Math.min(10, hypeScore + 1.2);
-  if (isCaps)  hypeScore = Math.min(10, hypeScore + 0.8);
+  if (isCaps) hypeScore = Math.min(10, hypeScore + 0.8);
   hypeScore = Math.min(10, hypeScore + 0.2);
   updateHype();
-
-  // auto clip event
   if (hypeScore >= 8) {
     const labels = ['clutch_play','hype_moment','funny_moment','highlight'];
-    const label  = labels[Math.floor(Math.random()*labels.length)];
+    const label = labels[Math.floor(Math.random()*labels.length)];
     const ev = document.createElement('div');
     ev.className = 'hype-event';
     ev.textContent = `[AI] Score ${hypeScore.toFixed(1)}/10 — ${label} detected`;
     feed.appendChild(ev);
     hypeScore = Math.max(0, hypeScore - 3);
   }
-
-  // scroll and trim
   feed.scrollTop = feed.scrollHeight;
   while (feed.children.length > 80) feed.removeChild(feed.firstChild);
 }
@@ -374,58 +367,185 @@ function decayHype() {
   updateHype();
 }
 
-// ── Terminal animation ────────────────────────────────────────────
-const CHAT_LINES = [
-  ["xqcfan99","LETS GOOO"],["pogmaster","clip that clip that"],
-  ["streamer_lv","no way bro"],["h4rdcore22","KEKW"],
-  ["realmike","he actually did it"],["noway_tv","OMEGALUL"],
-  ["clip_this1","clip it NOW"],["hypetrain","POGGERS POGGERS"],
-  ["lurker404","insane"],["xqcfan99","NO WAY NO WAY"],
-  ["fasttyper1","lets go lets go"],["viewer882","world record??"],
-  ["gamer_uk","LGOOO"],["realmike","stream highlight incoming"],
-];
-const S=[
-  {d:0,h:'<span style=color:#00d4ff>$</span> <span style=color:#e8f4ff>python3 src/clipai_v2.py watch kick.com/xqc --autopilot --vertical --subtitles</span>'},
-  {d:500,h:'<span style=color:#00ff88>  [~] Demo mode — token gate bypassed</span>'},
-  {d:900,h:'<span style=color:#4a5a6e>  Platform            KICK</span>'},
-  {d:1000,h:'<span style=color:#4a5a6e>  LLM                 claude/claude-sonnet-4-20250514</span>'},
-  {d:1100,h:'<span style=color:#4a5a6e>  Post-processing     vertical + subtitles</span>'},
-  {d:1400,h:'<span style=color:#c8d8e8>  [>] Connecting to kick.com/xqc</span>'},
-  {d:1900,h:'<span style=color:#00ff88>  [✓] Buffering stream</span>'},
-  {d:2100,h:'<span style=color:#00d4ff>  [AI] Autopilot active...</span>'},
-  {d:2300,h:'<span style=color:#2a3444>  ──────────────────────────────────────</span>'},
-];
-let t=2500;
-CHAT_LINES.forEach((row,i)=>{
-  const[user,msg]=row;
-  S.push({d:t,h:`<span style=color:#4a5a6e>  ${user.padEnd(14)}</span><span style=color:#c8d8e8>${msg}</span>`});
-  t+=260+Math.random()*150;
-  if(msg.toLowerCase().includes('clip that')&&i<5){
-    S.push({d:t,h:'<span style=color:#ffcc00>  [!] Keyword: clip that</span>'});t+=150;
-    S.push({d:t,h:'<span style=color:#00ff88>  [AI] 9/10 — hype_moment</span>'});t+=150;
-    S.push({d:t,h:'<span style=color:#00ff88>  [✓] clip saved → cropping 9:16 → subtitles</span>'});t+=150;
-    S.push({d:t,h:'<span style=color:#2a3444>  ──────────────────────────────────────</span>'});t+=150;
-  }
-  if(i===10){
-    S.push({d:t,h:'<span style=color:#ffcc00>  [!] Hype spike 8.7/10</span>'});t+=150;
-    S.push({d:t,h:'<span style=color:#00ff88>  [AI] clutch_play — clip saved</span>'});t+=150;
-    S.push({d:t,h:'<span style=color:#2a3444>  ──────────────────────────────────────</span>'});t+=150;
-  }
-});
-S.push({d:t,h:'<span style=color:#00d4ff>  [✓] 2 clips ready to share</span>'});
-S.push({d:t+200,h:'<span style=color:#00d4ff>$</span> <span class=cur></span>'});
-const TOTAL=t+800;
-function runTerm(){
-  const el=document.getElementById('term');el.innerHTML='';
-  S.forEach(s=>setTimeout(()=>{
-    const d=document.createElement('div');d.className='ln';d.innerHTML=s.h;
-    el.appendChild(d);el.scrollTop=el.scrollHeight;
-  },s.d));
-}
-runTerm();setInterval(runTerm,TOTAL+2000);
+// ── Terminal animation (AI-powered) ──────────────────────────────
+// We cache AI-generated lines so we only call the API once per session,
+// then loop the same sequence on repeat (no extra API calls).
+let cachedLines = null;
+let termRunning = false;
 
-function cpy(btn,text){
-  navigator.clipboard.writeText(text).then(()=>{btn.textContent='copied!';setTimeout(()=>{btn.textContent='copy';},2000);});
+// Color helpers matching the site palette
+function c(color, text) {
+  const colors = {
+    cyan: '#00d4ff', green: '#00ff88', yellow: '#ffcc00',
+    muted: '#4a5a6e', dim: '#2a3444', bright: '#e8f4ff', text: '#c8d8e8'
+  };
+  return `<span style="color:${colors[color]||color}">${text}</span>`;
+}
+
+// Render a list of {html, delay} objects into the fixed-height terminal,
+// scrolling like a real terminal but without the box ever resizing.
+function playLines(lines) {
+  const el = document.getElementById('term');
+  el.innerHTML = '';
+  let i = 0;
+  function next() {
+    if (i >= lines.length) {
+      // Pause then restart
+      setTimeout(() => { playLines(lines); }, 3000);
+      return;
+    }
+    const { html, delay } = lines[i++];
+    const div = document.createElement('div');
+    div.className = 'ln';
+    div.innerHTML = html;
+    el.appendChild(div);
+    // Keep scrolled to bottom so new lines appear, old ones scroll off top
+    el.scrollTop = el.scrollHeight;
+    setTimeout(next, delay);
+  }
+  next();
+}
+
+// Parse AI text response into {html, delay} render objects
+function parseAILines(rawText) {
+  const result = [];
+
+  // Static boot lines always shown first
+  const boot = [
+    { html: `${c('cyan','$')} ${c('bright','python3 src/clipai_v2.py watch kick.com/xqc --autopilot --vertical --subtitles')}`, delay: 0 },
+    { html: `${c('green',' [~] Demo mode — token gate bypassed')}`, delay: 500 },
+    { html: `${c('muted',' Platform        KICK')}`, delay: 900 },
+    { html: `${c('muted',' LLM             claude/claude-sonnet-4-20250514')}`, delay: 1050 },
+    { html: `${c('muted',' Post-processing  vertical + whisper subtitles')}`, delay: 1150 },
+    { html: `${c('text',' [>] Connecting to kick.com/xqc')}`, delay: 1400 },
+    { html: `${c('green',' [✓] Stream buffer ready — 47,832 viewers')}`, delay: 1900 },
+    { html: `${c('cyan',' [AI] Autopilot active — hype threshold 7.5/10')}`, delay: 2200 },
+  ];
+  result.push(...boot);
+
+  // Parse AI-generated chat lines
+  let t = 2600;
+  const aiLines = rawText.trim().split('\n').filter(l => l.trim());
+  for (const line of aiLines) {
+    // Expected format from AI: "username: message" or ">> EVENT: ..." or "---"
+    if (line.startsWith('---')) {
+      // separators removed — skip
+    } else if (line.startsWith('>> CLIP:')) {
+      const rest = line.replace('>> CLIP:', '').trim();
+      result.push({ html: `${c('yellow',' [!] Keyword: "clip that"')}`, delay: t }); t += 120;
+      result.push({ html: `${c('green',' [AI] ' + rest)}`, delay: t }); t += 120;
+      result.push({ html: `${c('green',' [✓] Clip saved → cropping 9:16 → burning subtitles')}`, delay: t }); t += 200;
+    } else if (line.startsWith('>> HYPE:')) {
+      const rest = line.replace('>> HYPE:', '').trim();
+      result.push({ html: `${c('yellow',' [!] Hype spike — ' + rest)}`, delay: t }); t += 120;
+      result.push({ html: `${c('green',' [AI] Auto-clip triggered → clip saved')}`, delay: t }); t += 200;
+    } else if (line.includes(': ')) {
+      const colon = line.indexOf(': ');
+      const user = line.slice(0, colon).trim();
+      const msg  = line.slice(colon + 2).trim();
+      result.push({ html: `${c('muted',' ' + user.padEnd(16))}${c('text', msg)}`, delay: t });
+      t += 220 + Math.random() * 140;
+    }
+  }
+
+  // Final lines
+  result.push({ html: `${c('cyan',' [✓] Session complete — clips ready to export')}`, delay: t });
+  result.push({ html: `${c('cyan','$')} ${c('muted','_')}`, delay: t + 200 });
+  return result;
+}
+
+// Fallback static lines if API fails
+function fallbackLines() {
+  const chat = [
+    ['xqcfan99','LETS GOOO that was insane'],
+    ['pogmaster','clip that clip that NOW'],
+    ['streamer_lv','no way bro he actually did it'],
+    ['h4rdcore22','KEKW I cant believe this'],
+    ['realmike','world record speedrun pace'],
+    ['clip_this1','clip it RIGHT NOW'],
+    ['hypetrain','POGGERS bro what just happened'],
+    ['lurker404','that was legitimately unreal'],
+    ['fasttyper1','lets go lets go lets go'],
+    ['viewer882','chat are you seeing this??'],
+    ['gamer_uk','LGOOO best stream of the year'],
+    ['realmike','highlight of the entire month'],
+  ];
+  const result = [
+    { html: `${c('cyan','$')} ${c('bright','python3 src/clipai_v2.py watch kick.com/xqc --autopilot --vertical --subtitles')}`, delay: 0 },
+    { html: `${c('green',' [~] Demo mode — token gate bypassed')}`, delay: 500 },
+    { html: `${c('muted',' Platform        KICK')}`, delay: 900 },
+    { html: `${c('muted',' LLM             claude/claude-sonnet-4-20250514')}`, delay: 1050 },
+    { html: `${c('text',' [>] Connecting to kick.com/xqc')}`, delay: 1400 },
+    { html: `${c('green',' [✓] Stream buffer ready')}`, delay: 1900 },
+    { html: `${c('cyan',' [AI] Autopilot active')}`, delay: 2200 },
+  ];
+  let t = 2400;
+  chat.forEach(([user, msg], i) => {
+    result.push({ html: `${c('muted',' ' + user.padEnd(16))}${c('text', msg)}`, delay: t });
+    t += 260 + Math.random() * 140;
+    if (i === 1) {
+      result.push({ html: `${c('yellow',' [!] Keyword: "clip that"')}`, delay: t }); t += 130;
+      result.push({ html: `${c('green',' [AI] 9.1/10 — hype_moment detected')}`, delay: t }); t += 130;
+      result.push({ html: `${c('green',' [✓] Clip saved → cropping 9:16 → subtitles')}`, delay: t }); t += 200;
+    }
+    if (i === 7) {
+      result.push({ html: `${c('yellow',' [!] Hype spike 8.7/10')}`, delay: t }); t += 130;
+      result.push({ html: `${c('green',' [AI] clutch_play — auto-clip saved')}`, delay: t }); t += 200;
+    }
+  });
+  result.push({ html: `${c('cyan',' [✓] 2 clips ready to export')}`, delay: t });
+  result.push({ html: `${c('cyan','$')} ${c('muted','_')}`, delay: t + 200 });
+  return result;
+}
+
+async function initTerminal() {
+  // Use cached lines if we already fetched
+  if (cachedLines) { playLines(cachedLines); return; }
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{
+          role: 'user',
+          content: `Generate a realistic Twitch/Kick chat log for a streamer named xqc doing a hype gaming moment. 
+Output ONLY lines in this exact format, nothing else:
+- Regular chat: "username: message"
+- When chat spams "clip that": start a line with ">> CLIP: 9.2/10 — hype_moment" 
+- When there's an auto-hype spike: start a line with ">> HYPE: 8.4/10 — clutch play detected"
+
+Rules:
+- 18 chat lines total, realistic Twitch usernames (numbers, underscores ok)
+- Messages are authentic stream chat: short, excited, memes, emotes like KEKW LULW PogChamp
+- Include exactly 1 >> CLIP event and 1 >> HYPE event, spread out
+- No separators, no "---" lines
+- No explanations, no preamble, just the lines`
+        }]
+      })
+    });
+
+    if (!resp.ok) throw new Error('API error');
+    const data = await resp.json();
+    const text = data.content?.map(b => b.text || '').join('') || '';
+    cachedLines = parseAILines(text);
+  } catch(e) {
+    cachedLines = fallbackLines();
+  }
+
+  playLines(cachedLines);
+}
+
+// Start terminal
+initTerminal();
+
+function cpy(btn, text) {
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = 'copied!';
+    setTimeout(() => { btn.textContent = 'copy'; }, 2000);
+  });
 }
 </script>
 </body>
