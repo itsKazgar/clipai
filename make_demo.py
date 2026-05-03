@@ -66,7 +66,7 @@ footer a{color:var(--cyan);text-decoration:none}
 </head>
 <body>
 <header><div class=w><div class=tb>
-  <div class=logo>// <span>CLIP.AI</span> &middot; ai stream clipping</div>
+  <div class=logo>// <span>CLIP.AI</span></div>
   <div class=badge>$CLIP &middot; v2.0.0</div>
 </div></div></header>
 <div class=w>
