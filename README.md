@@ -1,3 +1,5 @@
+> 🔗 **[Live Demo](https://itsKazgar.github.io/clipai)** | **[$CLIP on PumpFun](https://pump.fun/coin/AgPcsPV2X1J4beYTGpc55WgibPuJcJwqWiXvHn5pump)**
+
 # CLIP.AI
 AI-powered stream clipping tool. Token gated by $CLIP on Solana.
 
