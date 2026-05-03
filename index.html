@@ -57,7 +57,7 @@ header { border-bottom: 1px solid var(--border); padding: 14px 0; }
   display: block;
 }
 
-/* ── Terminal ── */
+/* ── Terminal ── FIX: hard fixed height, overflow hidden — animation never shifts page ── */
 .term { background: var(--bg2); border: 1px solid var(--border); margin: 0 0 32px; }
 .tbar {
   background: var(--bg3);
@@ -70,7 +70,14 @@ header { border-bottom: 1px solid var(--border); padding: 14px 0; }
   color: var(--muted);
 }
 .dot { width: 9px; height: 9px; border-radius: 50%; }
-.tbody { padding: 14px 16px; min-height: 220px; font-size: 11px; overflow: hidden; }
+.tbody {
+  padding: 14px 16px;
+  height: 220px;
+  min-height: 220px;
+  max-height: 220px;
+  font-size: 11px;
+  overflow: hidden;
+}
 .ln { margin-bottom: 2px; word-break: break-word; }
 .cur {
   display: inline-block; width: 7px; height: 12px;
@@ -131,7 +138,17 @@ header { border-bottom: 1px solid var(--border); padding: 14px 0; }
 
 /* ── Main layout ── */
 .live-body { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
-@media(max-width: 640px) { .live-body { grid-template-columns: 1fr; } .chat-feed { min-height: 160px !important; max-height: 160px !important; height: 160px !important; overflow-y: scroll !important; } }
+@media(max-width: 640px) {
+  .live-body { grid-template-columns: 1fr; }
+  .live-stream { border-right: none !important; border-bottom: 1px solid var(--border); }
+  /* FIX: lock chat height on mobile so it can never grow and shift the page */
+  .chat-feed {
+    height: 160px !important;
+    min-height: 160px !important;
+    max-height: 160px !important;
+    overflow-y: scroll !important;
+  }
+}
 
 /* ── Stream side ── */
 .live-stream { border-right: 1px solid var(--border); }
@@ -156,14 +173,24 @@ header { border-bottom: 1px solid var(--border); padding: 14px 0; }
   border-bottom: 1px solid var(--border);
   font-size: 10px; color: var(--muted);
   display: flex; justify-content: space-between; align-items: center;
+  /* FIX: fixed height so hype bar number changes don't shift layout */
+  height: 34px;
+  flex-shrink: 0;
 }
 .hype-bar-wrap { display: flex; align-items: center; gap: 8px; }
 .hype-bar-bg { width: 80px; height: 6px; background: var(--dim); border-radius: 3px; overflow: hidden; }
 .hype-bar-fill { height: 100%; background: var(--green); transition: width .3s; border-radius: 3px; }
+
+/* FIX: chat feed — fixed height always, content scrolls inside, page never moves */
 .chat-feed {
-  flex: 1; padding: 10px 14px;
-  min-height: 200px; max-height: 260px;
-  overflow-y: auto; font-size: 11px; line-height: 1.8;
+  flex: 1;
+  padding: 10px 14px;
+  height: 226px;
+  min-height: 226px;
+  max-height: 226px;
+  overflow-y: auto;
+  font-size: 11px;
+  line-height: 1.8;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
@@ -336,7 +363,6 @@ footer {
 }
 footer a { color: var(--cyan); text-decoration: none; }
 
-/* status badge */
 .status-live { color: var(--green); }
 .status-offline { color: var(--muted); }
 
@@ -359,7 +385,6 @@ footer a { color: var(--cyan); text-decoration: none; }
 
 <div class="w">
 
-  <!-- BANNER -->
   <div class="banner">
     <pre class="ascii"> ██████╗██╗     ██╗██████╗      █████╗ ██╗
 ██╔════╝██║     ██║██╔══██╗    ██╔══██╗██║
@@ -369,7 +394,6 @@ footer a { color: var(--cyan); text-decoration: none; }
  ╚═════╝╚══════╝╚═╝╚═╝         ╚═╝  ╚═╝╚═╝</pre>
   </div>
 
-  <!-- TERMINAL -->
   <div class="term">
     <div class="tbar">
       <div class="dot" style="background:#ff5f57"></div>
@@ -381,7 +405,6 @@ footer a { color: var(--cyan); text-decoration: none; }
     <div class="tbody" id="term"></div>
   </div>
 
-  <!-- LIVE VIEWER -->
   <div class="sec">watch live &amp; see real chat</div>
   <div class="live-box">
     <div class="live-top">
@@ -397,7 +420,6 @@ footer a { color: var(--cyan); text-decoration: none; }
     </div>
 
     <div class="live-body">
-      <!-- Stream -->
       <div class="live-stream">
         <div id="embed-area" class="stream-placeholder">
           <span style="color:var(--cyan)">[ CLIP.AI ]</span>
@@ -411,7 +433,6 @@ footer a { color: var(--cyan); text-decoration: none; }
         </div>
       </div>
 
-      <!-- Chat -->
       <div class="live-chat-panel">
         <div class="chat-header">
           <span id="chat-label" style="color:var(--muted)">chat will appear here</span>
@@ -428,7 +449,6 @@ footer a { color: var(--cyan); text-decoration: none; }
     </div>
   </div>
 
-  <!-- CONTROLS PANEL -->
   <div class="sec">controls &amp; settings</div>
   <div class="controls-panel">
     <div class="ctrl-header">
@@ -473,7 +493,6 @@ footer a { color: var(--cyan); text-decoration: none; }
     </div>
   </div>
 
-  <!-- CLIP LOG -->
   <div class="sec">clip log</div>
   <div class="clip-log">
     <div class="clip-log-header">
@@ -488,7 +507,6 @@ footer a { color: var(--cyan); text-decoration: none; }
     </div>
   </div>
 
-  <!-- QUICK START -->
   <div class="sec">try it yourself</div>
   <div class="qs">
     <div class="qs-t">&#9654; works with python only &mdash; no token needed</div>
@@ -498,7 +516,6 @@ footer a { color: var(--cyan); text-decoration: none; }
     <div style="margin-top:12px;font-size:11px;color:var(--muted)">reads real live twitch chat &middot; detects hype &middot; logs clip moments &middot; no ffmpeg needed</div>
   </div>
 
-  <!-- FEATURES -->
   <div class="sec">features</div>
   <div class="grid">
     <div class="card"><div class="ci">[ LIVE ]</div><div class="ct">Real Chat Reader</div><div class="cd">Connects to actual Twitch IRC &amp; Kick Pusher. Reads real messages, no login needed.</div></div>
@@ -515,21 +532,18 @@ footer a { color: var(--cyan); text-decoration: none; }
     <div class="card"><div class="ci">[ ⚡ ]</div><div class="ct">Multi-platform</div><div class="cd">Twitch &middot; Kick &middot; YouTube &middot; Rumble &middot; TikTok Live</div></div>
   </div>
 
-  <!-- LLMS -->
   <div class="sec">supported llms</div>
   <div class="llms">
     <div class="llm">Claude</div><div class="llm">GPT-4o</div><div class="llm">Gemini</div>
     <div class="llm">Ollama</div><div class="llm">Hermes3</div><div class="llm">LLaMA</div><div class="llm">Mistral</div>
   </div>
 
-  <!-- INSTALL -->
   <div class="sec">install &amp; run</div>
   <div class="cb"><code>git clone https://github.com/itsKazgar/clipai</code><button class="cpb" onclick="cpy(this,'git clone https://github.com/itsKazgar/clipai')">copy</button></div>
   <div class="cb"><code>pip install -r requirements.txt</code><button class="cpb" onclick="cpy(this,'pip install -r requirements.txt')">copy</button></div>
   <div class="cb"><code>python3 demo_live.py xqc --keywords "clip that,lets go"</code><button class="cpb" onclick="cpy(this,'python3 demo_live.py xqc --keywords \"clip that,lets go\"')">copy</button></div>
   <div class="cb"><code>python3 src/clipai_v2.py watch twitch.tv/xqc --autopilot --vertical --subtitles --demo</code><button class="cpb" onclick="cpy(this,'python3 src/clipai_v2.py watch twitch.tv/xqc --autopilot --vertical --subtitles --demo')">copy</button></div>
 
-  <!-- TOKEN -->
   <div class="sec">$clip token &middot; solana</div>
   <div class="coin">
     <div class="ca-label">contract address</div>
@@ -542,7 +556,7 @@ footer a { color: var(--cyan); text-decoration: none; }
     </div>
   </div>
 
-</div><!-- /w -->
+</div>
 
 <footer>
   CLIP.AI v2 &middot; MIT &middot; <a href="https://github.com/itsKazgar/clipai">github.com/itsKazgar/clipai</a>
@@ -552,11 +566,8 @@ footer a { color: var(--cyan); text-decoration: none; }
 <script>
 'use strict';
 
-// ═══════════════════════════════════════
-// STATE
-// ═══════════════════════════════════════
 let platform = 'kick';
-let chatSocket = null;     // WebSocket (Twitch) or Pusher instance (Kick)
+let chatSocket = null;
 let hypeScore = 0;
 let hypeInterval = null;
 let isLive = false;
@@ -564,61 +575,39 @@ let clips = [];
 let currentChan = '';
 let pusherLoaded = false;
 
-// ═══════════════════════════════════════
-// PLATFORM SWITCH
-// ═══════════════════════════════════════
 function switchPlatform(p) {
   platform = p;
   document.getElementById('tab-kick').classList.toggle('active', p === 'kick');
   document.getElementById('tab-twitch').classList.toggle('active', p === 'twitch');
 }
 
-// ═══════════════════════════════════════
-// LOAD / STOP
-// ═══════════════════════════════════════
 function loadLive() {
   const chan = document.getElementById('chan-input').value.trim().toLowerCase();
   if (!chan) return;
-
   stopLive();
   currentChan = chan;
   isLive = true;
-
   document.getElementById('watch-btn').disabled = true;
   document.getElementById('watch-btn').textContent = 'LOADING...';
   document.getElementById('stop-btn').style.display = '';
   document.getElementById('manual-clip-btn').disabled = false;
   document.getElementById('autopilot-status').textContent = '● active';
   document.getElementById('autopilot-status').style.color = 'var(--green)';
-
   document.getElementById('chat-feed').innerHTML = '<div class="chat-status">connecting to chat...</div>';
   document.getElementById('hype-fill').style.width = '0%';
   document.getElementById('hype-score').textContent = '0.0';
   hypeScore = 0;
-
   hypeInterval = setInterval(decayHype, 2000);
-
-  if (platform === 'kick') {
-    loadKick(chan);
-  } else {
-    loadTwitch(chan);
-  }
+  if (platform === 'kick') loadKick(chan);
+  else loadTwitch(chan);
 }
 
 function stopLive() {
   isLive = false;
   clearInterval(hypeInterval);
-
-  // Close Twitch WebSocket
-  if (chatSocket && chatSocket.readyState !== undefined) {
-    try { chatSocket.close(); } catch(e) {}
-  }
-  // Disconnect Pusher
-  if (chatSocket && chatSocket.disconnect) {
-    try { chatSocket.disconnect(); } catch(e) {}
-  }
+  if (chatSocket && chatSocket.readyState !== undefined) { try { chatSocket.close(); } catch(e) {} }
+  if (chatSocket && chatSocket.disconnect) { try { chatSocket.disconnect(); } catch(e) {} }
   chatSocket = null;
-
   document.getElementById('watch-btn').disabled = false;
   document.getElementById('watch-btn').textContent = '▶ WATCH LIVE';
   document.getElementById('stop-btn').style.display = 'none';
@@ -627,42 +616,26 @@ function stopLive() {
   document.getElementById('autopilot-status').style.color = 'var(--muted)';
 }
 
-// ═══════════════════════════════════════
-// KICK
-// ═══════════════════════════════════════
 async function loadKick(chan) {
-  const embedArea = document.getElementById('embed-area');
-  embedArea.innerHTML = `<iframe src="https://player.kick.com/${encodeURIComponent(chan)}" width="100%" height="260" frameborder="0" allowfullscreen></iframe>`;
-
+  document.getElementById('embed-area').innerHTML = `<iframe src="https://player.kick.com/${encodeURIComponent(chan)}" width="100%" height="260" frameborder="0" allowfullscreen></iframe>`;
   try {
     const r = await fetch(`https://kick.com/api/v1/channels/${encodeURIComponent(chan)}`);
-    if (!r.ok) throw new Error('channel not found');
+    if (!r.ok) throw new Error('not found');
     const d = await r.json();
-
     const live = d.livestream !== null;
-    const viewers = live ? (d.livestream.viewer_count || 0).toLocaleString() : '—';
-    const game = live ? (d.livestream.categories?.[0]?.name || '—') : '—';
-
     document.getElementById('stream-info').style.display = 'flex';
-    document.getElementById('si-status').innerHTML = live
-      ? '<span class="live-dot"></span> LIVE'
-      : '<span class="offline-dot"></span> offline';
-    document.getElementById('si-viewers').textContent = viewers;
-    document.getElementById('si-game').textContent = game;
+    document.getElementById('si-status').innerHTML = live ? '<span class="live-dot"></span> LIVE' : '<span class="offline-dot"></span> offline';
+    document.getElementById('si-viewers').textContent = live ? (d.livestream.viewer_count || 0).toLocaleString() : '—';
+    document.getElementById('si-game').textContent = live ? (d.livestream.categories?.[0]?.name || '—') : '—';
     document.getElementById('chat-label').textContent = live ? `#${chan} — kick live chat` : `${chan} is offline`;
-
     document.getElementById('watch-btn').disabled = false;
     document.getElementById('watch-btn').textContent = '▶ WATCH LIVE';
-
-    if (live && d.id) {
-      connectKickChat(d.id, chan);
-    } else {
-      document.getElementById('chat-feed').innerHTML = '<div class="chat-status">streamer is offline — no live chat available</div>';
-    }
+    if (live && d.id) connectKickChat(d.id, chan);
+    else document.getElementById('chat-feed').innerHTML = '<div class="chat-status">streamer is offline</div>';
   } catch(e) {
     document.getElementById('watch-btn').disabled = false;
     document.getElementById('watch-btn').textContent = '▶ WATCH LIVE';
-    document.getElementById('chat-feed').innerHTML = `<div class="chat-status">could not load channel — check name or try Twitch</div>`;
+    document.getElementById('chat-feed').innerHTML = '<div class="chat-status">could not load channel — check name or try Twitch</div>';
   }
 }
 
@@ -673,9 +646,7 @@ function connectKickChat(channelId, chan) {
       const channel = pusher.subscribe(`channel.${channelId}`);
       channel.bind('App\\Events\\ChatMessageEvent', data => {
         if (!isLive) return;
-        const user = data.sender?.username || 'user';
-        const msg = data.content || '';
-        addChatMsg(user, msg);
+        addChatMsg(data.sender?.username || 'user', data.content || '');
       });
       document.getElementById('chat-label').textContent = `#${chan} — kick live chat ●`;
       chatSocket = pusher;
@@ -683,46 +654,33 @@ function connectKickChat(channelId, chan) {
       document.getElementById('chat-feed').innerHTML = '<div class="chat-status">chat connection failed</div>';
     }
   };
-
-  if (window.Pusher) {
-    doConnect();
-  } else if (!pusherLoaded) {
+  if (window.Pusher) { doConnect(); }
+  else if (!pusherLoaded) {
     pusherLoaded = true;
-    const script = document.createElement('script');
-    script.src = 'https://js.pusher.com/8.2.0/pusher.min.js';
-    script.onload = doConnect;
-    script.onerror = () => {
-      document.getElementById('chat-feed').innerHTML = '<div class="chat-status">failed to load chat library</div>';
-    };
-    document.head.appendChild(script);
+    const s = document.createElement('script');
+    s.src = 'https://js.pusher.com/8.2.0/pusher.min.js';
+    s.onload = doConnect;
+    s.onerror = () => { document.getElementById('chat-feed').innerHTML = '<div class="chat-status">failed to load chat library</div>'; };
+    document.head.appendChild(s);
   }
 }
 
-// ═══════════════════════════════════════
-// TWITCH — real IRC via WebSocket
-// ═══════════════════════════════════════
 function loadTwitch(chan) {
-  const embedArea = document.getElementById('embed-area');
   const parent = location.hostname || 'itskazgar.github.io';
-  embedArea.innerHTML = `<iframe src="https://player.twitch.tv/?channel=${encodeURIComponent(chan)}&parent=${parent}" width="100%" height="260" frameborder="0" allowfullscreen></iframe>`;
-
+  document.getElementById('embed-area').innerHTML = `<iframe src="https://player.twitch.tv/?channel=${encodeURIComponent(chan)}&parent=${parent}" width="100%" height="260" frameborder="0" allowfullscreen></iframe>`;
   document.getElementById('stream-info').style.display = 'flex';
   document.getElementById('si-status').innerHTML = '<span class="live-dot"></span> LIVE';
   document.getElementById('si-viewers').textContent = 'see twitch.tv';
   document.getElementById('si-game').textContent = '—';
   document.getElementById('chat-label').textContent = `#${chan} — twitch live chat ●`;
-
   document.getElementById('watch-btn').disabled = false;
   document.getElementById('watch-btn').textContent = '▶ WATCH LIVE';
-
   connectTwitchIRC(chan);
 }
 
 function connectTwitchIRC(chan) {
-  // Twitch IRC over WebSocket — anonymous read-only, no login needed
   const ws = new WebSocket('wss://irc-ws.chat.twitch.tv:443');
   chatSocket = ws;
-
   ws.onopen = () => {
     ws.send('CAP REQ :twitch.tv/tags twitch.tv/commands');
     ws.send('PASS oauth:clipai_demo_readonly');
@@ -730,98 +688,55 @@ function connectTwitchIRC(chan) {
     ws.send(`JOIN #${chan}`);
     document.getElementById('chat-feed').innerHTML = '';
   };
-
   ws.onmessage = (e) => {
     if (!isLive) return;
     const raw = e.data.trim();
-
-    // Keep-alive
-    if (raw.startsWith('PING')) {
-      ws.send('PONG :tmi.twitch.tv');
-      return;
-    }
-
-    // Parse PRIVMSG
-    const match = raw.match(/^(?:@[^ ]+ )?:(\w+)!\w+@\w+\.tmi\.twitch\.tv PRIVMSG #\w+ :(.+)$/);
-    if (match) {
-      const user = match[1];
-      const msg = match[2];
-      addChatMsg(user, msg);
-    }
+    if (raw.startsWith('PING')) { ws.send('PONG :tmi.twitch.tv'); return; }
+    const m = raw.match(/^(?:@[^ ]+ )?:(\w+)!\w+@\w+\.tmi\.twitch\.tv PRIVMSG #\w+ :(.+)$/);
+    if (m) addChatMsg(m[1], m[2]);
   };
-
-  ws.onerror = () => {
-    addStatusMsg('chat connection error — retrying...');
-  };
-
-  ws.onclose = () => {
-    if (isLive) {
-      addStatusMsg('chat disconnected — reconnecting in 3s...');
-      setTimeout(() => { if (isLive) connectTwitchIRC(chan); }, 3000);
-    }
-  };
+  ws.onerror = () => addStatusMsg('chat connection error — retrying...');
+  ws.onclose = () => { if (isLive) { addStatusMsg('reconnecting in 3s...'); setTimeout(() => { if (isLive) connectTwitchIRC(chan); }, 3000); } };
 }
 
-// ═══════════════════════════════════════
-// CHAT + HYPE ENGINE
-// ═══════════════════════════════════════
 function getKeywords() {
-  return document.getElementById('keywords-input').value
-    .split(',')
-    .map(k => k.trim().toLowerCase())
-    .filter(Boolean);
+  return document.getElementById('keywords-input').value.split(',').map(k => k.trim().toLowerCase()).filter(Boolean);
 }
+function getSensitivity() { return parseFloat(document.getElementById('sensitivity-slider').value); }
 
-function getSensitivity() {
-  return parseFloat(document.getElementById('sensitivity-slider').value);
-}
-
-const HYPE_EMOTES = ['pog','poggers','omg','kekw','lulw','pepelaugh','monkas','pepega',
-  'clap','widepeeposad','sadge','peeposad','ez','gg','sheesh'];
+const HYPE_EMOTES = ['pog','poggers','omg','kekw','lulw','pepelaugh','monkas','pepega','clap','widepeeposad','sadge','peeposad','ez','gg','sheesh'];
 
 function addChatMsg(user, rawMsg) {
-  // Sanitize
-  const safeUser = escHtml(user);
-  const safeMsg = escHtml(rawMsg.slice(0, 100));
-  const msgLower = rawMsg.toLowerCase();
-
   const feed = document.getElementById('chat-feed');
-
   const div = document.createElement('div');
   div.className = 'chat-msg';
-  div.innerHTML = `<span class="chat-user">${safeUser}</span> <span class="chat-text">${safeMsg}</span>`;
+  div.innerHTML = `<span class="chat-user">${escHtml(user)}</span> <span class="chat-text">${escHtml(rawMsg.slice(0,100))}</span>`;
   feed.appendChild(div);
 
-  // Hype scoring
+  const msgLower = rawMsg.toLowerCase();
   const isKeyword = getKeywords().some(w => msgLower.includes(w));
   const isCaps = rawMsg.length > 4 && rawMsg === rawMsg.toUpperCase() && /[A-Z]/.test(rawMsg);
   const isEmote = HYPE_EMOTES.some(e => msgLower.includes(e));
-
-  let delta = 0.15; // baseline per message
+  let delta = 0.15;
   if (isKeyword) delta += 2.0;
   if (isCaps)    delta += 0.8;
   if (isEmote)   delta += 0.6;
-
   hypeScore = Math.min(10, hypeScore + delta);
   updateHype();
 
-  // Auto-clip trigger
-  const threshold = getSensitivity();
-  if (hypeScore >= threshold) {
+  if (hypeScore >= getSensitivity()) {
     const trigger = isKeyword ? 'keyword' : isCaps ? 'caps-spike' : 'hype-spike';
     logClip('auto', trigger, hypeScore, currentChan, platform);
-    hypeScore = Math.max(0, hypeScore - 3.5); // cooldown
+    hypeScore = Math.max(0, hypeScore - 3.5);
   }
 
-  // On mobile, never auto-scroll — it fights with page scroll and shifts the view
-  // On desktop, only scroll if already at the bottom
+  // FIX: never auto-scroll on mobile — prevents page jumping
   const isMobile = window.matchMedia('(max-width: 640px)').matches;
   if (!isMobile) {
     const atBottom = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 40;
     if (atBottom) feed.scrollTop = feed.scrollHeight;
   }
 
-  // Trim old messages
   while (feed.children.length > 100) feed.removeChild(feed.firstChild);
 }
 
@@ -833,8 +748,7 @@ function addStatusMsg(msg) {
   feed.appendChild(div);
   const isMobile = window.matchMedia('(max-width: 640px)').matches;
   if (!isMobile) {
-    const atBottom = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 40;
-    if (atBottom) feed.scrollTop = feed.scrollHeight;
+    if (feed.scrollHeight - feed.scrollTop - feed.clientHeight < 40) feed.scrollTop = feed.scrollHeight;
   }
 }
 
@@ -847,121 +761,54 @@ function updateHype() {
 }
 
 function decayHype() {
-  const rate = parseFloat(document.getElementById('decay-slider').value);
-  hypeScore = Math.max(0, hypeScore - rate);
+  hypeScore = Math.max(0, hypeScore - parseFloat(document.getElementById('decay-slider').value));
   updateHype();
 }
 
-// ═══════════════════════════════════════
-// CLIP LOGGING
-// ═══════════════════════════════════════
 const CLIP_LABELS = ['clutch_play','hype_moment','funny_moment','highlight','big_moment','insane_play'];
 
 function logClip(type, trigger, score, chan, plat) {
-  const now = new Date();
-  const timeStr = now.toTimeString().slice(0,8);
+  const timeStr = new Date().toTimeString().slice(0,8);
   const label = document.getElementById('label-input').value.trim() || 'highlight';
-  const autoLabel = type === 'manual'
-    ? `${label}_manual`
-    : `${label}_${CLIP_LABELS[Math.floor(Math.random() * CLIP_LABELS.length)]}`;
+  const autoLabel = type === 'manual' ? `${label}_manual` : `${label}_${CLIP_LABELS[Math.floor(Math.random() * CLIP_LABELS.length)]}`;
+  clips.push({ id: clips.length+1, time: timeStr, label: autoLabel, score: score.toFixed(1), trigger, chan, platform: plat, type });
 
-  const clip = {
-    id: clips.length + 1,
-    time: timeStr,
-    label: autoLabel,
-    score: score.toFixed(1),
-    trigger,
-    chan,
-    platform: plat,
-    type
-  };
-  clips.push(clip);
-
-  // Show in chat feed
   const feed = document.getElementById('chat-feed');
   const ev = document.createElement('div');
   ev.className = type === 'manual' ? 'clip-event' : 'hype-event';
-  ev.textContent = type === 'manual'
-    ? `[CLIP] Manual clip logged at ${timeStr}`
-    : `[AI] ${score.toFixed(1)}/10 — ${autoLabel} — ${trigger}`;
+  ev.textContent = type === 'manual' ? `[CLIP] Manual clip logged at ${timeStr}` : `[AI] ${score.toFixed(1)}/10 — ${autoLabel} — ${trigger}`;
   feed.appendChild(ev);
   feed.scrollTop = feed.scrollHeight;
 
-  // Update clip log
   renderClipLog();
-
-  // Update counter
   document.getElementById('si-clips').textContent = clips.length;
 }
 
 function renderClipLog() {
   const body = document.getElementById('clip-log-body');
   document.getElementById('clip-count').textContent = clips.length + ' clip' + (clips.length !== 1 ? 's' : '');
-
-  if (clips.length === 0) {
-    body.innerHTML = '<div class="clip-empty">no clips logged yet — start a stream and the AI will detect hype moments</div>';
-    return;
-  }
-
+  if (clips.length === 0) { body.innerHTML = '<div class="clip-empty">no clips logged yet — start a stream and the AI will detect hype moments</div>'; return; }
   body.innerHTML = '';
-  // Show newest first
   [...clips].reverse().forEach(c => {
     const entry = document.createElement('div');
     entry.className = 'clip-entry';
-
-    let twitchLink = '';
-    if (c.platform === 'twitch' && c.chan) {
-      twitchLink = `<a href="https://twitch.tv/${c.chan}" target="_blank" style="color:var(--cyan);font-size:10px;text-decoration:none">open stream ↗</a>`;
-    } else if (c.platform === 'kick' && c.chan) {
-      twitchLink = `<a href="https://kick.com/${c.chan}" target="_blank" style="color:var(--cyan);font-size:10px;text-decoration:none">open stream ↗</a>`;
-    }
-
-    entry.innerHTML = `
-      <span class="clip-time">${c.time}</span>
-      <span class="clip-label">${c.label}</span>
-      <span class="clip-score">${c.score}/10</span>
-      <span class="clip-trigger">[${c.trigger}]</span>
-      <span class="clip-trigger">${c.platform}/${c.chan}</span>
-      ${twitchLink}
-    `;
+    const link = c.platform === 'twitch' ? `<a href="https://twitch.tv/${c.chan}" target="_blank" style="color:var(--cyan);font-size:10px;text-decoration:none">open stream ↗</a>`
+                : c.platform === 'kick'   ? `<a href="https://kick.com/${c.chan}" target="_blank" style="color:var(--cyan);font-size:10px;text-decoration:none">open stream ↗</a>` : '';
+    entry.innerHTML = `<span class="clip-time">${c.time}</span><span class="clip-label">${c.label}</span><span class="clip-score">${c.score}/10</span><span class="clip-trigger">[${c.trigger}]</span><span class="clip-trigger">${c.platform}/${c.chan}</span>${link}`;
     body.appendChild(entry);
   });
 }
 
-function clearClips() {
-  clips = [];
-  document.getElementById('si-clips').textContent = '0';
-  renderClipLog();
-}
-
-function manualClip() {
-  if (!isLive) return;
-  logClip('manual', 'manual', hypeScore, currentChan, platform);
-}
-
-// ═══════════════════════════════════════
-// SLIDER LABELS
-// ═══════════════════════════════════════
-function updateSensLabel() {
-  document.getElementById('sens-val').textContent = document.getElementById('sensitivity-slider').value;
-}
-function updateDecayLabel() {
-  document.getElementById('decay-val').textContent = document.getElementById('decay-slider').value;
-}
-
-// ═══════════════════════════════════════
-// SANITIZER
-// ═══════════════════════════════════════
-function escHtml(s) {
-  return String(s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
+function clearClips() { clips = []; document.getElementById('si-clips').textContent = '0'; renderClipLog(); }
+function manualClip() { if (!isLive) return; logClip('manual', 'manual', hypeScore, currentChan, platform); }
+function updateSensLabel() { document.getElementById('sens-val').textContent = document.getElementById('sensitivity-slider').value; }
+function updateDecayLabel() { document.getElementById('decay-val').textContent = document.getElementById('decay-slider').value; }
+function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 // ═══════════════════════════════════════
 // TERMINAL ANIMATION
+// FIX: .tbody has fixed height + overflow:hidden in CSS
+// Lines append inside — the container box never grows, page never shifts
 // ═══════════════════════════════════════
 const CHAT_LINES = [
   ['xqcfan99','LETS GOOO'],['pogmaster','clip that clip that'],
@@ -990,55 +837,43 @@ CHAT_LINES.forEach((row, i) => {
   const [user, msg] = row;
   S.push({d:t, h:`<span style="color:#4a5a6e"> ${user.padEnd(14)}</span><span style="color:#c8d8e8">${msg}</span>`});
   t += 260 + Math.random() * 150;
-
   if (msg.toLowerCase().includes('clip that') && i < 5) {
-    S.push({d:t, h:'<span style="color:#ffcc00"> [!] Keyword: clip that</span>'}); t += 150;
-    S.push({d:t, h:'<span style="color:#00ff88"> [AI] 9.1/10 — hype_moment</span>'}); t += 150;
-    S.push({d:t, h:'<span style="color:#00ff88"> [✓] clip logged → cropping 9:16 → subtitles</span>'}); t += 150;
-    S.push({d:t, h:'<span style="color:#2a3444"> ──────────────────────────────────────</span>'}); t += 150;
+    S.push({d:t, h:'<span style="color:#ffcc00"> [!] Keyword: clip that</span>'}); t+=150;
+    S.push({d:t, h:'<span style="color:#00ff88"> [AI] 9.1/10 — hype_moment</span>'}); t+=150;
+    S.push({d:t, h:'<span style="color:#00ff88"> [✓] clip logged → cropping 9:16 → subtitles</span>'}); t+=150;
+    S.push({d:t, h:'<span style="color:#2a3444"> ──────────────────────────────────────</span>'}); t+=150;
   }
   if (i === 10) {
-    S.push({d:t, h:'<span style="color:#ffcc00"> [!] Hype spike 8.7/10</span>'}); t += 150;
-    S.push({d:t, h:'<span style="color:#00ff88"> [AI] clutch_play — clip logged</span>'}); t += 150;
-    S.push({d:t, h:'<span style="color:#2a3444"> ──────────────────────────────────────</span>'}); t += 150;
+    S.push({d:t, h:'<span style="color:#ffcc00"> [!] Hype spike 8.7/10</span>'}); t+=150;
+    S.push({d:t, h:'<span style="color:#00ff88"> [AI] clutch_play — clip logged</span>'}); t+=150;
+    S.push({d:t, h:'<span style="color:#2a3444"> ──────────────────────────────────────</span>'}); t+=150;
   }
 });
 S.push({d:t,     h:'<span style="color:#00d4ff"> [✓] 2 clips ready to review</span>'});
 S.push({d:t+200, h:'<span style="color:#00d4ff">$</span> <span class="cur"></span>'});
 
 const TOTAL = t + 800;
-let termFadeTimeout = null;
 
 function runTerm() {
   const el = document.getElementById('term');
-  // Fade out before clearing
-  el.style.opacity = '0';
   el.style.transition = 'opacity 0.4s';
-  termFadeTimeout = setTimeout(() => {
-    el.innerHTML = '';
+  el.style.opacity = '0';
+  setTimeout(() => {
+    // Clear children without touching container dimensions
+    while (el.firstChild) el.removeChild(el.firstChild);
     el.style.opacity = '1';
     S.forEach(s => setTimeout(() => {
       const d = document.createElement('div');
       d.className = 'ln';
       d.innerHTML = s.h;
       el.appendChild(d);
-      el.scrollTop = el.scrollHeight;
+      el.scrollTop = el.scrollHeight; // scrolls inside the fixed box only
     }, s.d));
   }, 400);
 }
 
 runTerm();
 setInterval(runTerm, TOTAL + 2400);
-
-// ═══════════════════════════════════════
-// COPY BUTTONS
-// ═══════════════════════════════════════
-const COPY_CMDS = {
-  clone:   'git clone https://github.com/itsKazgar/clipai',
-  install: 'pip install -r requirements.txt',
-  demo:    'python3 demo_live.py xqc --keywords "clip that,lets go"',
-  full:    'python3 src/clipai_v2.py watch twitch.tv/xqc --autopilot --vertical --subtitles --demo',
-};
 
 function cpy(btn, text) {
   navigator.clipboard.writeText(text).then(() => {
