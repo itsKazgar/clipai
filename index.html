@@ -1,563 +1,1044 @@
 <!DOCTYPE html>
-<html lang=en>
+<html lang="en">
 <head>
-<meta charset=UTF-8>
-<meta name=viewport content="width=device-width,initial-scale=1,maximum-scale=1">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <title>CLIP.AI v2 - AI Stream Clipping</title>
+<meta property="og:title" content="CLIP.AI v2 — AI Stream Clipping">
+<meta property="og:description" content="Real-time hype detection. Auto-clip stream highlights powered by AI.">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
-:root{--bg:#0a0c0f;--bg2:#0f1318;--bg3:#151a22;--border:#1e2733;--dim:#2a3444;--muted:#4a5a6e;--text:#c8d8e8;--bright:#e8f4ff;--cyan:#00d4ff;--green:#00ff88;--yellow:#ffcc00;}
-*{margin:0;padding:0;box-sizing:border-box}
-html,body{max-width:100%;overflow-x:hidden}
-body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:14px;line-height:1.6;min-height:100vh}
-.w{max-width:860px;margin:0 auto;padding:0 16px}
-header{border-bottom:1px solid var(--border);padding:14px 0}
-.tb{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
-.logo{font-size:11px;color:var(--muted);letter-spacing:.12em}
-.logo span{color:var(--cyan)}
-.badge{font-size:10px;padding:3px 10px;border:1px solid var(--yellow);color:var(--yellow)}
-.banner{padding:36px 0 24px;text-align:center}
-.ascii{font-size:clamp(6px,1.8vw,12px);line-height:1.2;color:var(--cyan);white-space:pre;text-shadow:0 0 20px rgba(0,212,255,.4);display:block}
-.term{background:var(--bg2);border:1px solid var(--border);margin:0 0 32px}
-.tbar{background:var(--bg3);border-bottom:1px solid var(--border);padding:8px 14px;display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted)}
-.dot{width:9px;height:9px;border-radius:50%}
 
-/* FIX 1: Lock terminal height so it never grows or shrinks */
-.tbody{
-  padding:14px 16px;
-  height:260px;          /* fixed height — never changes */
-  min-height:unset;      /* remove the old min-height */
-  max-height:260px;      /* also cap it */
-  font-size:11px;
-  overflow:hidden;       /* hide any overflow — no scrollbar, no resize */
+:root {
+  --bg:     #0a0c0f;
+  --bg2:    #0f1318;
+  --bg3:    #151a22;
+  --border: #1e2733;
+  --dim:    #2a3444;
+  --muted:  #4a5a6e;
+  --text:   #c8d8e8;
+  --bright: #e8f4ff;
+  --cyan:   #00d4ff;
+  --green:  #00ff88;
+  --yellow: #ffcc00;
+  --red:    #ff4466;
 }
 
-.ln{margin-bottom:2px;word-break:break-word}
-.cur{display:inline-block;width:7px;height:12px;background:var(--cyan);vertical-align:middle;animation:bl 1s step-end infinite}
-@keyframes bl{50%{opacity:0}}
-.sec{font-size:10px;letter-spacing:.18em;color:var(--muted);text-transform:uppercase;margin-bottom:12px}
-.sec::before{content:"// ";color:var(--dim)}
-/* live viewer */
-.live-box{border:1px solid var(--border);margin-bottom:32px;overflow:hidden}
-.live-top{background:var(--bg3);border-bottom:1px solid var(--border);padding:10px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.live-tabs{display:flex;gap:2px}
-.ltab{font-size:11px;padding:5px 14px;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:var(--bg2);transition:all .15s}
-.ltab.active{border-color:var(--cyan);color:var(--cyan);background:var(--bg3)}
-.live-input{display:flex;gap:8px;flex:1;min-width:200px}
-.live-input input{flex:1;background:var(--bg);border:1px solid var(--dim);color:var(--bright);font-family:inherit;font-size:12px;padding:6px 10px;outline:none;min-width:0}
-.live-input input:focus{border-color:var(--cyan)}
-.btn{background:transparent;border:1px solid var(--cyan);color:var(--cyan);font-family:inherit;font-size:11px;padding:6px 16px;cursor:pointer;text-transform:uppercase;transition:all .15s;white-space:nowrap}
-.btn:hover{background:var(--cyan);color:var(--bg)}
-.live-body{display:grid;grid-template-columns:1fr 1fr;gap:0}
-@media(max-width:600px){.live-body{grid-template-columns:1fr}}
-.live-stream{border-right:1px solid var(--border)}
-.live-stream iframe{width:100%;height:260px;display:block;border:none}
-.stream-info{padding:10px 14px;background:var(--bg3);border-top:1px solid var(--border);font-size:11px;display:flex;gap:16px;flex-wrap:wrap}
-.si{color:var(--muted)}
-.si span{color:var(--bright)}
-.live-chat-panel{display:flex;flex-direction:column}
-.chat-header{padding:8px 14px;background:var(--bg3);border-bottom:1px solid var(--border);font-size:10px;color:var(--muted);display:flex;justify-content:space-between;align-items:center}
-.hype-bar-wrap{display:flex;align-items:center;gap:8px}
-.hype-bar-bg{width:80px;height:6px;background:var(--dim);border-radius:3px;overflow:hidden}
-.hype-bar-fill{height:100%;background:var(--green);transition:width .3s;border-radius:3px}
-.chat-feed{flex:1;padding:10px 14px;min-height:200px;max-height:260px;overflow-y:auto;font-size:11px;line-height:1.8}
-.chat-msg{margin-bottom:1px;word-break:break-word}
-.chat-user{color:var(--cyan)}
-.chat-text{color:var(--text)}
-.chat-status{color:var(--muted);font-style:italic;font-size:10px}
-.hype-event{background:rgba(0,255,136,.08);border-left:2px solid var(--green);padding:4px 8px;margin:4px 0;font-size:10px;color:var(--green)}
-.live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block;animation:pulse 1.5s infinite}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
-.offline-dot{width:7px;height:7px;border-radius:50%;background:var(--muted);display:inline-block}
-/* rest of layout */
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:1px;background:var(--border);border:1px solid var(--border);margin-bottom:32px}
-.card{background:var(--bg2);padding:16px}
-.card:hover{background:var(--bg3)}
-.ci{font-size:10px;color:var(--cyan);letter-spacing:.12em;margin-bottom:6px}
-.ct{color:var(--bright);font-size:13px;font-weight:700;margin-bottom:4px}
-.cd{color:var(--muted);font-size:12px;line-height:1.6}
-.qs{border:1px solid var(--green);padding:20px;margin-bottom:32px;background:rgba(0,255,136,.03)}
-.qs-t{font-size:10px;color:var(--green);letter-spacing:.15em;text-transform:uppercase;margin-bottom:14px}
-.qs-row{display:flex;gap:10px;margin-bottom:8px;font-size:12px;align-items:center}
-.qs-n{color:var(--cyan);font-size:11px;flex-shrink:0}
-.qs-cmd{color:var(--bright);background:var(--bg3);padding:6px 10px;border:1px solid var(--dim);flex:1;word-break:break-all}
-.llms{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:32px}
-.llm{font-size:11px;padding:4px 12px;border:1px solid var(--cyan);color:var(--cyan)}
-.cb{background:var(--bg2);border:1px solid var(--border);padding:10px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:10px}
-.cb code{color:var(--green);font-family:inherit;font-size:11px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.cpb{background:transparent;border:1px solid var(--dim);color:var(--muted);font-family:inherit;font-size:10px;padding:3px 9px;cursor:pointer;transition:all .15s}
-.cpb:hover{border-color:var(--cyan);color:var(--cyan)}
-.coin{border:1px solid var(--yellow);padding:18px;margin-bottom:32px}
-.ca-label{font-size:10px;color:var(--muted);letter-spacing:.15em;text-transform:uppercase;margin-bottom:6px}
-.ca-addr{font-size:11px;font-weight:700;color:var(--yellow);word-break:break-all;padding:10px;background:var(--bg3);border:1px solid var(--dim);margin-bottom:14px}
-.coin-steps{font-size:12px;color:var(--muted);line-height:2.2}
-footer{border-top:1px solid var(--border);padding:18px 0;font-size:11px;color:var(--muted);text-align:center}
-footer a{color:var(--cyan);text-decoration:none}
-@media(max-width:480px){.ascii{font-size:5.5px}.grid{grid-template-columns:1fr}}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { max-width: 100%; overflow-x: hidden; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  min-height: 100vh;
+}
 
-/* AI loading state for terminal */
-.term-loading{color:var(--muted);font-size:11px;padding:8px 0;opacity:0.7}
+.w { max-width: 900px; margin: 0 auto; padding: 0 16px; }
+
+/* ── Header ── */
+header { border-bottom: 1px solid var(--border); padding: 14px 0; }
+.tb { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.logo { font-size: 11px; color: var(--muted); letter-spacing: .12em; }
+.logo span { color: var(--cyan); }
+.badge { font-size: 10px; padding: 3px 10px; border: 1px solid var(--yellow); color: var(--yellow); }
+
+/* ── Banner ── */
+.banner { padding: 36px 0 24px; text-align: center; }
+.ascii {
+  font-size: clamp(6px, 1.8vw, 12px);
+  line-height: 1.2;
+  color: var(--cyan);
+  white-space: pre;
+  text-shadow: 0 0 20px rgba(0,212,255,.4);
+  display: block;
+}
+
+/* ── Terminal ── */
+.term { background: var(--bg2); border: 1px solid var(--border); margin: 0 0 32px; }
+.tbar {
+  background: var(--bg3);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.dot { width: 9px; height: 9px; border-radius: 50%; }
+.tbody { padding: 14px 16px; min-height: 220px; font-size: 11px; overflow: hidden; }
+.ln { margin-bottom: 2px; word-break: break-word; }
+.cur {
+  display: inline-block; width: 7px; height: 12px;
+  background: var(--cyan); vertical-align: middle;
+  animation: bl 1s step-end infinite;
+}
+@keyframes bl { 50% { opacity: 0; } }
+
+/* ── Section label ── */
+.sec {
+  font-size: 10px;
+  letter-spacing: .18em;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+.sec::before { content: "// "; color: var(--dim); }
+
+/* ═══════════════════════════════════════
+   LIVE VIEWER
+═══════════════════════════════════════ */
+.live-box { border: 1px solid var(--border); margin-bottom: 32px; overflow: hidden; }
+
+.live-top {
+  background: var(--bg3);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.live-tabs { display: flex; gap: 2px; }
+.ltab {
+  font-size: 11px; padding: 5px 14px;
+  border: 1px solid var(--border);
+  color: var(--muted); cursor: pointer;
+  background: var(--bg2); transition: all .15s;
+}
+.ltab.active { border-color: var(--cyan); color: var(--cyan); background: var(--bg3); }
+.live-input { display: flex; gap: 8px; flex: 1; min-width: 200px; }
+.live-input input {
+  flex: 1; background: var(--bg); border: 1px solid var(--dim);
+  color: var(--bright); font-family: inherit; font-size: 12px;
+  padding: 6px 10px; outline: none; min-width: 0;
+}
+.live-input input:focus { border-color: var(--cyan); }
+.btn {
+  background: transparent; border: 1px solid var(--cyan);
+  color: var(--cyan); font-family: inherit; font-size: 11px;
+  padding: 6px 16px; cursor: pointer; text-transform: uppercase;
+  transition: all .15s; white-space: nowrap;
+}
+.btn:hover { background: var(--cyan); color: var(--bg); }
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+.btn-red { border-color: var(--red); color: var(--red); }
+.btn-red:hover { background: var(--red); color: var(--bg); }
+
+/* ── Main layout ── */
+.live-body { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+@media(max-width: 640px) { .live-body { grid-template-columns: 1fr; } }
+
+/* ── Stream side ── */
+.live-stream { border-right: 1px solid var(--border); }
+.live-stream iframe { width: 100%; height: 260px; display: block; border: none; }
+.stream-placeholder {
+  display: flex; align-items: center; justify-content: center;
+  height: 260px; color: var(--muted); font-size: 11px;
+  flex-direction: column; gap: 8px;
+}
+.stream-info {
+  padding: 10px 14px; background: var(--bg3);
+  border-top: 1px solid var(--border);
+  font-size: 11px; display: flex; gap: 16px; flex-wrap: wrap;
+}
+.si { color: var(--muted); }
+.si span { color: var(--bright); }
+
+/* ── Chat side ── */
+.live-chat-panel { display: flex; flex-direction: column; }
+.chat-header {
+  padding: 8px 14px; background: var(--bg3);
+  border-bottom: 1px solid var(--border);
+  font-size: 10px; color: var(--muted);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.hype-bar-wrap { display: flex; align-items: center; gap: 8px; }
+.hype-bar-bg { width: 80px; height: 6px; background: var(--dim); border-radius: 3px; overflow: hidden; }
+.hype-bar-fill { height: 100%; background: var(--green); transition: width .3s; border-radius: 3px; }
+.chat-feed {
+  flex: 1; padding: 10px 14px;
+  min-height: 200px; max-height: 260px;
+  overflow-y: auto; font-size: 11px; line-height: 1.8;
+}
+.chat-feed::-webkit-scrollbar { width: 4px; }
+.chat-feed::-webkit-scrollbar-track { background: var(--bg2); }
+.chat-feed::-webkit-scrollbar-thumb { background: var(--dim); }
+.chat-msg { margin-bottom: 1px; word-break: break-word; }
+.chat-user { color: var(--cyan); }
+.chat-text { color: var(--text); }
+.chat-status { color: var(--muted); font-style: italic; font-size: 10px; }
+.hype-event {
+  background: rgba(0,255,136,.08);
+  border-left: 2px solid var(--green);
+  padding: 4px 8px; margin: 4px 0;
+  font-size: 10px; color: var(--green);
+}
+.clip-event {
+  background: rgba(255,204,0,.08);
+  border-left: 2px solid var(--yellow);
+  padding: 4px 8px; margin: 4px 0;
+  font-size: 10px; color: var(--yellow);
+}
+.live-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--green); display: inline-block;
+  animation: pulse 1.5s infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+.offline-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); display: inline-block; }
+
+/* ═══════════════════════════════════════
+   CONTROLS PANEL
+═══════════════════════════════════════ */
+.controls-panel {
+  border: 1px solid var(--border);
+  margin-bottom: 32px;
+  overflow: hidden;
+}
+.ctrl-header {
+  background: var(--bg3); border-bottom: 1px solid var(--border);
+  padding: 10px 16px; font-size: 10px; color: var(--muted);
+  letter-spacing: .1em; text-transform: uppercase;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.ctrl-body { padding: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media(max-width: 580px) { .ctrl-body { grid-template-columns: 1fr; } }
+.ctrl-group { display: flex; flex-direction: column; gap: 6px; }
+.ctrl-label { font-size: 10px; color: var(--muted); letter-spacing: .1em; text-transform: uppercase; }
+.ctrl-input {
+  background: var(--bg); border: 1px solid var(--dim);
+  color: var(--bright); font-family: inherit; font-size: 11px;
+  padding: 6px 10px; outline: none; width: 100%;
+}
+.ctrl-input:focus { border-color: var(--cyan); }
+.ctrl-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.slider-wrap { display: flex; align-items: center; gap: 8px; flex: 1; }
+input[type="range"] {
+  -webkit-appearance: none; flex: 1; height: 4px;
+  background: var(--dim); border-radius: 2px; outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 14px; height: 14px;
+  border-radius: 50%; background: var(--cyan); cursor: pointer;
+}
+.slider-val { color: var(--cyan); font-size: 11px; min-width: 30px; }
+
+/* ── Manual clip button ── */
+.clip-btn-wrap {
+  border-top: 1px solid var(--border);
+  padding: 12px 16px;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  background: var(--bg2);
+}
+.clip-now-btn {
+  background: transparent; border: 1px solid var(--yellow);
+  color: var(--yellow); font-family: inherit; font-size: 12px;
+  padding: 8px 20px; cursor: pointer; text-transform: uppercase;
+  transition: all .15s; font-weight: 700;
+  animation: clipglow 2s ease-in-out infinite;
+}
+@keyframes clipglow {
+  0%,100% { box-shadow: 0 0 0 rgba(255,204,0,0); }
+  50% { box-shadow: 0 0 12px rgba(255,204,0,.3); }
+}
+.clip-now-btn:hover { background: var(--yellow); color: var(--bg); }
+.clip-now-btn:disabled { opacity: .3; cursor: not-allowed; animation: none; }
+
+/* ═══════════════════════════════════════
+   CLIP LOG
+═══════════════════════════════════════ */
+.clip-log { border: 1px solid var(--border); margin-bottom: 32px; }
+.clip-log-header {
+  background: var(--bg3); border-bottom: 1px solid var(--border);
+  padding: 10px 16px; font-size: 10px; color: var(--muted);
+  display: flex; justify-content: space-between; align-items: center;
+  text-transform: uppercase; letter-spacing: .1em;
+}
+.clip-log-body { min-height: 60px; }
+.clip-entry {
+  padding: 10px 16px; border-bottom: 1px solid var(--border);
+  font-size: 11px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+}
+.clip-entry:last-child { border-bottom: none; }
+.clip-time { color: var(--muted); flex-shrink: 0; }
+.clip-label { color: var(--yellow); flex: 1; }
+.clip-score { color: var(--green); }
+.clip-trigger { color: var(--muted); font-size: 10px; }
+.clip-empty { padding: 16px; color: var(--muted); font-size: 11px; font-style: italic; }
+.clear-btn {
+  background: transparent; border: 1px solid var(--dim);
+  color: var(--muted); font-family: inherit; font-size: 10px;
+  padding: 3px 10px; cursor: pointer; transition: all .15s;
+}
+.clear-btn:hover { border-color: var(--red); color: var(--red); }
+
+/* ═══════════════════════════════════════
+   REST OF PAGE
+═══════════════════════════════════════ */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px,1fr));
+  gap: 1px; background: var(--border);
+  border: 1px solid var(--border);
+  margin-bottom: 32px;
+}
+.card { background: var(--bg2); padding: 16px; }
+.card:hover { background: var(--bg3); }
+.ci { font-size: 10px; color: var(--cyan); letter-spacing: .12em; margin-bottom: 6px; }
+.ct { color: var(--bright); font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+.cd { color: var(--muted); font-size: 12px; line-height: 1.6; }
+
+.qs { border: 1px solid var(--green); padding: 20px; margin-bottom: 32px; background: rgba(0,255,136,.03); }
+.qs-t { font-size: 10px; color: var(--green); letter-spacing: .15em; text-transform: uppercase; margin-bottom: 14px; }
+.qs-row { display: flex; gap: 10px; margin-bottom: 8px; font-size: 12px; align-items: center; }
+.qs-n { color: var(--cyan); font-size: 11px; flex-shrink: 0; }
+.qs-cmd { color: var(--bright); background: var(--bg3); padding: 6px 10px; border: 1px solid var(--dim); flex: 1; word-break: break-all; }
+
+.llms { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 32px; }
+.llm { font-size: 11px; padding: 4px 12px; border: 1px solid var(--cyan); color: var(--cyan); }
+
+.cb {
+  background: var(--bg2); border: 1px solid var(--border);
+  padding: 10px 14px; margin-bottom: 8px;
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+}
+.cb code {
+  color: var(--green); font-family: inherit; font-size: 11px;
+  flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cpb {
+  background: transparent; border: 1px solid var(--dim);
+  color: var(--muted); font-family: inherit; font-size: 10px;
+  padding: 3px 9px; cursor: pointer; transition: all .15s;
+}
+.cpb:hover { border-color: var(--cyan); color: var(--cyan); }
+
+.coin { border: 1px solid var(--yellow); padding: 18px; margin-bottom: 32px; }
+.ca-label { font-size: 10px; color: var(--muted); letter-spacing: .15em; text-transform: uppercase; margin-bottom: 6px; }
+.ca-addr {
+  font-size: 11px; font-weight: 700; color: var(--yellow);
+  word-break: break-all; padding: 10px;
+  background: var(--bg3); border: 1px solid var(--dim); margin-bottom: 14px;
+}
+.coin-steps { font-size: 12px; color: var(--muted); line-height: 2.2; }
+
+footer {
+  border-top: 1px solid var(--border);
+  padding: 18px 0; font-size: 11px; color: var(--muted); text-align: center;
+}
+footer a { color: var(--cyan); text-decoration: none; }
+
+/* status badge */
+.status-live { color: var(--green); }
+.status-offline { color: var(--muted); }
+
+@media(max-width: 480px) {
+  .ascii { font-size: 5.5px; }
+  .grid { grid-template-columns: 1fr; }
+}
 </style>
 </head>
 <body>
-<header><div class=w><div class=tb>
-<div class=logo>// <span>CLIP.AI</span></div>
-<div class=badge>$CLIP &middot; v2.0.0</div>
-</div></div></header>
-<div class=w>
-<div class=banner>
-<pre class=ascii> ██████╗██╗     ██╗██████╗      █████╗ ██╗
+
+<header>
+  <div class="w">
+    <div class="tb">
+      <div class="logo">// <span>CLIP.AI</span></div>
+      <div class="badge">$CLIP &middot; v2.0.0</div>
+    </div>
+  </div>
+</header>
+
+<div class="w">
+
+  <!-- BANNER -->
+  <div class="banner">
+    <pre class="ascii"> ██████╗██╗     ██╗██████╗      █████╗ ██╗
 ██╔════╝██║     ██║██╔══██╗    ██╔══██╗██║
 ██║     ██║     ██║██████╔╝    ███████║██║
 ██║     ██║     ██║██╔═══╝     ██╔══██║██║
 ╚██████╗███████╗██║██║         ██║  ██║██║
  ╚═════╝╚══════╝╚═╝╚═╝         ╚═╝  ╚═╝╚═╝</pre>
-</div>
+  </div>
 
-<!-- TERMINAL -->
-<div class=term>
-<div class=tbar>
-<div class=dot style=background:#ff5f57></div>
-<div class=dot style=background:#ffbd2e></div>
-<div class=dot style=background:#28ca41></div>
-<span style=margin-left:6px>bash &mdash; clipai v2</span>
-<span style="margin-left:auto;color:#00ff88;font-size:10px">&#9679; LIVE</span>
-</div>
-<div class=tbody id=term><div class=term-loading>initializing...</div></div>
-</div>
+  <!-- TERMINAL -->
+  <div class="term">
+    <div class="tbar">
+      <div class="dot" style="background:#ff5f57"></div>
+      <div class="dot" style="background:#ffbd2e"></div>
+      <div class="dot" style="background:#28ca41"></div>
+      <span style="margin-left:6px">bash &mdash; clipai v2</span>
+      <span style="margin-left:auto;color:#00ff88;font-size:10px">&#9679; LIVE</span>
+    </div>
+    <div class="tbody" id="term"></div>
+  </div>
 
-<!-- LIVE VIEWER -->
-<div class=sec>watch live &amp; see real chat</div>
-<div class=live-box>
-<div class=live-top>
-<div class=live-tabs>
-<div class=ltab id=tab-kick onclick="switchPlatform('kick')" >Kick</div>
-<div class=ltab id=tab-twitch onclick="switchPlatform('twitch')">Twitch</div>
-</div>
-<div class=live-input>
-<input id=chan-input placeholder="streamer name e.g. xqc" onkeydown="if(event.key==='Enter')loadLive()">
-<button class=btn onclick=loadLive()>&#9654; WATCH LIVE</button>
-</div>
-</div>
-<div class=live-body>
-<div class=live-stream>
-<div id=embed-area style="display:flex;align-items:center;justify-content:center;height:260px;color:var(--muted);font-size:11px">
-enter a streamer name above
-</div>
-<div class=stream-info id=stream-info style=display:none>
-<div class=si>status <span id=si-status>—</span></div>
-<div class=si>viewers <span id=si-viewers>—</span></div>
-<div class=si>game <span id=si-game>—</span></div>
-</div>
-</div>
-<div class=live-chat-panel>
-<div class=chat-header>
-<span id=chat-label style=color:var(--muted)>chat will appear here</span>
-<div class=hype-bar-wrap>
-<span style=color:var(--muted);font-size:10px>hype</span>
-<div class=hype-bar-bg><div class=hype-bar-fill id=hype-fill style=width:0%></div></div>
-<span id=hype-score style=color:var(--green)>0</span>
-</div>
-</div>
-<div class=chat-feed id=chat-feed>
-<div class=chat-status>waiting for stream...</div>
-</div>
-</div>
-</div>
-</div>
+  <!-- LIVE VIEWER -->
+  <div class="sec">watch live &amp; see real chat</div>
+  <div class="live-box">
+    <div class="live-top">
+      <div class="live-tabs">
+        <div class="ltab active" id="tab-kick" onclick="switchPlatform('kick')">Kick</div>
+        <div class="ltab" id="tab-twitch" onclick="switchPlatform('twitch')">Twitch</div>
+      </div>
+      <div class="live-input">
+        <input id="chan-input" placeholder="streamer name e.g. xqc" onkeydown="if(event.key==='Enter')loadLive()">
+        <button class="btn" id="watch-btn" onclick="loadLive()">&#9654; WATCH LIVE</button>
+        <button class="btn btn-red" id="stop-btn" onclick="stopLive()" style="display:none">&#9632; STOP</button>
+      </div>
+    </div>
 
-<!-- QUICK START -->
-<div class=sec>try it yourself</div>
-<div class=qs>
-<div class=qs-t>&#9654; works with python only &mdash; no token needed</div>
-<div class=qs-row><span class=qs-n>01.</span><div class=qs-cmd>git clone https://github.com/itsKazgar/clipai && cd clipai</div></div>
-<div class=qs-row><span class=qs-n>02.</span><div class=qs-cmd>pip install -r requirements.txt</div></div>
-<div class=qs-row><span class=qs-n>03.</span><div class=qs-cmd>python3 demo_live.py xqc --keywords "clip that,lets go"</div></div>
-<div style="margin-top:12px;font-size:11px;color:var(--muted)">reads real live twitch chat &middot; detects hype &middot; logs clip moments &middot; no ffmpeg needed</div>
-</div>
+    <div class="live-body">
+      <!-- Stream -->
+      <div class="live-stream">
+        <div id="embed-area" class="stream-placeholder">
+          <span style="color:var(--cyan)">[ CLIP.AI ]</span>
+          <span>enter a streamer name above</span>
+        </div>
+        <div class="stream-info" id="stream-info" style="display:none">
+          <div class="si">status <span id="si-status">—</span></div>
+          <div class="si">viewers <span id="si-viewers">—</span></div>
+          <div class="si">game <span id="si-game">—</span></div>
+          <div class="si">clips logged <span id="si-clips" style="color:var(--yellow)">0</span></div>
+        </div>
+      </div>
 
-<!-- FEATURES -->
-<div class=sec>features</div>
-<div class=grid>
-<div class=card><div class=ci>[ LIVE ]</div><div class=ct>Real Chat Reader</div><div class=cd>Connects to actual Twitch IRC. Reads real messages as they happen, no login needed.</div></div>
-<div class=card><div class=ci>[ AI ]</div><div class=ct>Multi-LLM</div><div class=cd>Claude, GPT-4o, Gemini, Ollama, Hermes3, LLaMA, Mistral. Swap with one flag.</div></div>
-<div class=card><div class=ci>[ # ]</div><div class=ct>Keyword Triggers</div><div class=cd>Chat says "clip that" — clips the last 60 seconds instantly.</div></div>
-<div class=card><div class=ci>[ 9:16 ]</div><div class=ct>Auto Vertical Crop</div><div class=cd>One flag turns any clip into a TikTok/Reels/Shorts ready vertical video.</div></div>
-<div class=card><div class=ci>[ CC ]</div><div class=ct>Whisper Subtitles</div><div class=cd>Real timestamps burned in. 3 styles: TikTok, minimal, bold.</div></div>
-<div class=card><div class=ci>[ ▶ ]</div><div class=ct>Social Export</div><div class=cd>One-click send to YouTube, TikTok, Twitter/X, Discord.</div></div>
-<div class=card><div class=ci>[ OBS ]</div><div class=ct>OBS Plugin</div><div class=cd>Use OBS replay buffer instead of streamlink. Better quality.</div></div>
-<div class=card><div class=ci>[ ~ ]</div><div class=ct>Hype Detection</div><div class=cd>Tracks chat velocity, caps, emotes. Auto-clips spike moments.</div></div>
-<div class=card><div class=ci>[ ◈ ]</div><div class=ct>Live Dashboard</div><div class=cd>Real-time hype meter, chat feed, clip log in your terminal.</div></div>
-<div class=card><div class=ci>[ ♡ ]</div><div class=ct>Community</div><div class=cd>Shared prompt library. Upvote prompts. Browse clip gallery.</div></div>
-<div class=card><div class=ci>[ $ ]</div><div class=ct>$CLIP Token Gate</div><div class=cd>Hold $CLIP on Solana to unlock. Use --demo to try free.</div></div>
-<div class=card><div class=ci>[ ⚡ ]</div><div class=ct>Multi-platform</div><div class=cd>Twitch &middot; Kick &middot; YouTube &middot; Rumble &middot; TikTok Live</div></div>
-</div>
+      <!-- Chat -->
+      <div class="live-chat-panel">
+        <div class="chat-header">
+          <span id="chat-label" style="color:var(--muted)">chat will appear here</span>
+          <div class="hype-bar-wrap">
+            <span style="color:var(--muted);font-size:10px">hype</span>
+            <div class="hype-bar-bg"><div class="hype-bar-fill" id="hype-fill" style="width:0%"></div></div>
+            <span id="hype-score" style="color:var(--green)">0.0</span>
+          </div>
+        </div>
+        <div class="chat-feed" id="chat-feed">
+          <div class="chat-status">waiting for stream...</div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-<!-- LLMS -->
-<div class=sec>supported llms</div>
-<div class=llms>
-<div class=llm>Claude</div><div class=llm>GPT-4o</div><div class=llm>Gemini</div>
-<div class=llm>Ollama</div><div class=llm>Hermes3</div><div class=llm>LLaMA</div><div class=llm>Mistral</div>
-</div>
+  <!-- CONTROLS PANEL -->
+  <div class="sec">controls &amp; settings</div>
+  <div class="controls-panel">
+    <div class="ctrl-header">
+      <span>&#9881; autopilot configuration</span>
+      <span id="autopilot-status" style="color:var(--muted)">&#9679; inactive</span>
+    </div>
+    <div class="ctrl-body">
+      <div class="ctrl-group">
+        <div class="ctrl-label">keyword triggers (comma separated)</div>
+        <input class="ctrl-input" id="keywords-input" value="clip that,lets go,lgooo,clip it,no way,holy" placeholder="clip that,lets go,omg">
+        <div style="font-size:10px;color:var(--muted)">chat saying these = instant clip log</div>
+      </div>
+      <div class="ctrl-group">
+        <div class="ctrl-label">hype sensitivity (auto-clip threshold)</div>
+        <div class="slider-wrap">
+          <input type="range" id="sensitivity-slider" min="5" max="9.5" step="0.5" value="7.5" oninput="updateSensLabel()">
+          <span class="slider-val" id="sens-val">7.5</span>
+          <span style="font-size:10px;color:var(--muted)">/10</span>
+        </div>
+        <div style="font-size:10px;color:var(--muted)">lower = clips more often · higher = only big moments</div>
+      </div>
+      <div class="ctrl-group">
+        <div class="ctrl-label">clip label prefix</div>
+        <input class="ctrl-input" id="label-input" value="highlight" placeholder="highlight">
+      </div>
+      <div class="ctrl-group">
+        <div class="ctrl-label">hype decay speed</div>
+        <div class="slider-wrap">
+          <input type="range" id="decay-slider" min="0.1" max="1.5" step="0.1" value="0.5" oninput="updateDecayLabel()">
+          <span class="slider-val" id="decay-val">0.5</span>
+          <span style="font-size:10px;color:var(--muted)">/s</span>
+        </div>
+        <div style="font-size:10px;color:var(--muted)">how fast hype drops between messages</div>
+      </div>
+    </div>
+    <div class="clip-btn-wrap">
+      <button class="clip-now-btn" id="manual-clip-btn" onclick="manualClip()" disabled>
+        &#9654; CLIP NOW
+      </button>
+      <span style="font-size:11px;color:var(--muted)">manually log a clip at the current moment</span>
+      <span id="autopilot-badge" style="font-size:10px;color:var(--muted);margin-left:auto">autopilot: <span style="color:var(--green)">ON</span> — watching for hype spikes</span>
+    </div>
+  </div>
 
-<!-- INSTALL -->
-<div class=sec>install &amp; run</div>
-<div class=cb><code>git clone https://github.com/itsKazgar/clipai</code><button class=cpb onclick="cpy(this,'git clone https://github.com/itsKazgar/clipai')">copy</button></div>
-<div class=cb><code>pip install -r requirements.txt</code><button class=cpb onclick="cpy(this,'pip install -r requirements.txt')">copy</button></div>
-<div class=cb><code>python3 demo_live.py xqc --keywords "clip that,lets go"</code><button class=cpb onclick="cpy(this,'python3 demo_live.py xqc --keywords &quot;clip that,lets go&quot;')">copy</button></div>
-<div class=cb><code>python3 src/clipai_v2.py watch twitch.tv/xqc --autopilot --vertical --subtitles --demo</code><button class=cpb onclick="cpy(this,'python3 src/clipai_v2.py watch twitch.tv/xqc --autopilot --vertical --subtitles --demo')">copy</button></div>
+  <!-- CLIP LOG -->
+  <div class="sec">clip log</div>
+  <div class="clip-log">
+    <div class="clip-log-header">
+      <span>&#9654; logged clip moments</span>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span id="clip-count" style="color:var(--yellow)">0 clips</span>
+        <button class="clear-btn" onclick="clearClips()">clear</button>
+      </div>
+    </div>
+    <div class="clip-log-body" id="clip-log-body">
+      <div class="clip-empty">no clips logged yet — start a stream and the AI will detect hype moments</div>
+    </div>
+  </div>
 
-<!-- TOKEN -->
-<div class=sec>$clip token &middot; solana</div>
-<div class=coin>
-<div class=ca-label>contract address</div>
-<div class=ca-addr>AgPcsPV2X1J4beYTGpc55WgibPuJcJwqWiXvHn5pump</div>
-<div class=coin-steps>
-<span style=color:var(--cyan)>01.</span> Buy $CLIP on <a href=https://pump.fun/coin/AgPcsPV2X1J4beYTGpc55WgibPuJcJwqWiXvHn5pump style=color:var(--yellow)>pump.fun</a><br>
-<span style=color:var(--cyan)>02.</span> <code style=color:var(--green)>python3 src/clipai_v2.py config --wallet YOUR_WALLET</code><br>
-<span style=color:var(--cyan)>03.</span> Balance verified via Solana RPC on every launch<br>
-<span style=color:var(--cyan)>04.</span> Clip everything
-</div>
-</div>
-</div>
+  <!-- QUICK START -->
+  <div class="sec">try it yourself</div>
+  <div class="qs">
+    <div class="qs-t">&#9654; works with python only &mdash; no token needed</div>
+    <div class="qs-row"><span class="qs-n">01.</span><div class="qs-cmd">git clone https://github.com/itsKazgar/clipai && cd clipai</div></div>
+    <div class="qs-row"><span class="qs-n">02.</span><div class="qs-cmd">pip install -r requirements.txt</div></div>
+    <div class="qs-row"><span class="qs-n">03.</span><div class="qs-cmd">python3 demo_live.py xqc --keywords "clip that,lets go"</div></div>
+    <div style="margin-top:12px;font-size:11px;color:var(--muted)">reads real live twitch chat &middot; detects hype &middot; logs clip moments &middot; no ffmpeg needed</div>
+  </div>
+
+  <!-- FEATURES -->
+  <div class="sec">features</div>
+  <div class="grid">
+    <div class="card"><div class="ci">[ LIVE ]</div><div class="ct">Real Chat Reader</div><div class="cd">Connects to actual Twitch IRC &amp; Kick Pusher. Reads real messages, no login needed.</div></div>
+    <div class="card"><div class="ci">[ AI ]</div><div class="ct">Multi-LLM</div><div class="cd">Claude, GPT-4o, Gemini, Ollama, Hermes3, LLaMA, Mistral. Swap with one flag.</div></div>
+    <div class="card"><div class="ci">[ # ]</div><div class="ct">Keyword Triggers</div><div class="cd">Chat says "clip that" — clips the last 60 seconds instantly.</div></div>
+    <div class="card"><div class="ci">[ 9:16 ]</div><div class="ct">Auto Vertical Crop</div><div class="cd">One flag turns any clip into a TikTok/Reels/Shorts ready vertical video.</div></div>
+    <div class="card"><div class="ci">[ CC ]</div><div class="ct">Whisper Subtitles</div><div class="cd">Real timestamps burned in. 3 styles: TikTok, minimal, bold.</div></div>
+    <div class="card"><div class="ci">[ ▶ ]</div><div class="ct">Social Export</div><div class="cd">One-click send to YouTube, TikTok, Twitter/X, Discord.</div></div>
+    <div class="card"><div class="ci">[ OBS ]</div><div class="ct">OBS Plugin</div><div class="cd">Use OBS replay buffer instead of streamlink. Better quality.</div></div>
+    <div class="card"><div class="ci">[ ~ ]</div><div class="ct">Hype Detection</div><div class="cd">Tracks chat velocity, caps, emotes. Auto-clips spike moments.</div></div>
+    <div class="card"><div class="ci">[ ◈ ]</div><div class="ct">Live Dashboard</div><div class="cd">Real-time hype meter, chat feed, clip log in your terminal.</div></div>
+    <div class="card"><div class="ci">[ ♡ ]</div><div class="ct">Community</div><div class="cd">Shared prompt library. Upvote prompts. Browse clip gallery.</div></div>
+    <div class="card"><div class="ci">[ $ ]</div><div class="ct">$CLIP Token Gate</div><div class="cd">Hold $CLIP on Solana to unlock. Use --demo to try free.</div></div>
+    <div class="card"><div class="ci">[ ⚡ ]</div><div class="ct">Multi-platform</div><div class="cd">Twitch &middot; Kick &middot; YouTube &middot; Rumble &middot; TikTok Live</div></div>
+  </div>
+
+  <!-- LLMS -->
+  <div class="sec">supported llms</div>
+  <div class="llms">
+    <div class="llm">Claude</div><div class="llm">GPT-4o</div><div class="llm">Gemini</div>
+    <div class="llm">Ollama</div><div class="llm">Hermes3</div><div class="llm">LLaMA</div><div class="llm">Mistral</div>
+  </div>
+
+  <!-- INSTALL -->
+  <div class="sec">install &amp; run</div>
+  <div class="cb"><code>git clone https://github.com/itsKazgar/clipai</code><button class="cpb" onclick="cpy(this,'git clone https://github.com/itsKazgar/clipai')">copy</button></div>
+  <div class="cb"><code>pip install -r requirements.txt</code><button class="cpb" onclick="cpy(this,'pip install -r requirements.txt')">copy</button></div>
+  <div class="cb"><code>python3 demo_live.py xqc --keywords "clip that,lets go"</code><button class="cpb" onclick="cpy(this,'python3 demo_live.py xqc --keywords \"clip that,lets go\"')">copy</button></div>
+  <div class="cb"><code>python3 src/clipai_v2.py watch twitch.tv/xqc --autopilot --vertical --subtitles --demo</code><button class="cpb" onclick="cpy(this,'python3 src/clipai_v2.py watch twitch.tv/xqc --autopilot --vertical --subtitles --demo')">copy</button></div>
+
+  <!-- TOKEN -->
+  <div class="sec">$clip token &middot; solana</div>
+  <div class="coin">
+    <div class="ca-label">contract address</div>
+    <div class="ca-addr">AgPcsPV2X1J4beYTGpc55WgibPuJcJwqWiXvHn5pump</div>
+    <div class="coin-steps">
+      <span style="color:var(--cyan)">01.</span> Buy $CLIP on <a href="https://pump.fun/coin/AgPcsPV2X1J4beYTGpc55WgibPuJcJwqWiXvHn5pump" style="color:var(--yellow)">pump.fun</a><br>
+      <span style="color:var(--cyan)">02.</span> <code style="color:var(--green)">python3 src/clipai_v2.py config --wallet YOUR_WALLET</code><br>
+      <span style="color:var(--cyan)">03.</span> Balance verified via Solana RPC on every launch<br>
+      <span style="color:var(--cyan)">04.</span> Clip everything
+    </div>
+  </div>
+
+</div><!-- /w -->
 
 <footer>
-CLIP.AI v2 &middot; MIT &middot; <a href=https://github.com/itsKazgar/clipai>github.com/itsKazgar/clipai</a>
-&middot; powered by <span style=color:var(--yellow)>$CLIP</span>
+  CLIP.AI v2 &middot; MIT &middot; <a href="https://github.com/itsKazgar/clipai">github.com/itsKazgar/clipai</a>
+  &middot; powered by <span style="color:var(--yellow)">$CLIP</span>
 </footer>
 
 <script>
-// ── Platform state ────────────────────────────────────────────────
-let platform = 'kick';
-let chatSocket = null;
-let hypeScore = 0;
-let msgCount = 0;
-let lastMsgTime = Date.now();
-let hypeInterval = null;
+'use strict';
 
+// ═══════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════
+let platform = 'kick';
+let chatSocket = null;     // WebSocket (Twitch) or Pusher instance (Kick)
+let hypeScore = 0;
+let hypeInterval = null;
+let isLive = false;
+let clips = [];
+let currentChan = '';
+let pusherLoaded = false;
+
+// ═══════════════════════════════════════
+// PLATFORM SWITCH
+// ═══════════════════════════════════════
 function switchPlatform(p) {
   platform = p;
-  document.getElementById('tab-kick').classList.toggle('active', p==='kick');
-  document.getElementById('tab-twitch').classList.toggle('active', p==='twitch');
-  document.getElementById('chan-input').placeholder = 'streamer name e.g. xqc';
+  document.getElementById('tab-kick').classList.toggle('active', p === 'kick');
+  document.getElementById('tab-twitch').classList.toggle('active', p === 'twitch');
 }
-switchPlatform('kick');
 
-// ── Load live stream ──────────────────────────────────────────────
+// ═══════════════════════════════════════
+// LOAD / STOP
+// ═══════════════════════════════════════
 function loadLive() {
   const chan = document.getElementById('chan-input').value.trim().toLowerCase();
   if (!chan) return;
-  if (chatSocket) { try { chatSocket.close(); } catch(e){} chatSocket = null; }
-  clearInterval(hypeInterval);
-  hypeScore = 0; msgCount = 0;
-  document.getElementById('chat-feed').innerHTML = '<div class=chat-status>connecting...</div>';
+
+  stopLive();
+  currentChan = chan;
+  isLive = true;
+
+  document.getElementById('watch-btn').disabled = true;
+  document.getElementById('watch-btn').textContent = 'LOADING...';
+  document.getElementById('stop-btn').style.display = '';
+  document.getElementById('manual-clip-btn').disabled = false;
+  document.getElementById('autopilot-status').textContent = '● active';
+  document.getElementById('autopilot-status').style.color = 'var(--green)';
+
+  document.getElementById('chat-feed').innerHTML = '<div class="chat-status">connecting to chat...</div>';
   document.getElementById('hype-fill').style.width = '0%';
-  document.getElementById('hype-score').textContent = '0';
+  document.getElementById('hype-score').textContent = '0.0';
+  hypeScore = 0;
+
+  hypeInterval = setInterval(decayHype, 2000);
+
   if (platform === 'kick') {
     loadKick(chan);
   } else {
     loadTwitch(chan);
   }
-  hypeInterval = setInterval(decayHype, 2000);
 }
 
-// ── KICK ──────────────────────────────────────────────────────────
+function stopLive() {
+  isLive = false;
+  clearInterval(hypeInterval);
+
+  // Close Twitch WebSocket
+  if (chatSocket && chatSocket.readyState !== undefined) {
+    try { chatSocket.close(); } catch(e) {}
+  }
+  // Disconnect Pusher
+  if (chatSocket && chatSocket.disconnect) {
+    try { chatSocket.disconnect(); } catch(e) {}
+  }
+  chatSocket = null;
+
+  document.getElementById('watch-btn').disabled = false;
+  document.getElementById('watch-btn').textContent = '▶ WATCH LIVE';
+  document.getElementById('stop-btn').style.display = 'none';
+  document.getElementById('manual-clip-btn').disabled = true;
+  document.getElementById('autopilot-status').textContent = '● inactive';
+  document.getElementById('autopilot-status').style.color = 'var(--muted)';
+}
+
+// ═══════════════════════════════════════
+// KICK
+// ═══════════════════════════════════════
 async function loadKick(chan) {
   const embedArea = document.getElementById('embed-area');
-  embedArea.innerHTML = `<iframe src="https://player.kick.com/${chan}" width="100%" height="260" frameborder="0" allowfullscreen></iframe>`;
+  embedArea.innerHTML = `<iframe src="https://player.kick.com/${encodeURIComponent(chan)}" width="100%" height="260" frameborder="0" allowfullscreen></iframe>`;
+
   try {
-    const r = await fetch(`https://kick.com/api/v1/channels/${chan}`);
+    const r = await fetch(`https://kick.com/api/v1/channels/${encodeURIComponent(chan)}`);
+    if (!r.ok) throw new Error('channel not found');
     const d = await r.json();
+
     const live = d.livestream !== null;
-    const viewers = live ? d.livestream.viewer_count.toLocaleString() : '—';
+    const viewers = live ? (d.livestream.viewer_count || 0).toLocaleString() : '—';
     const game = live ? (d.livestream.categories?.[0]?.name || '—') : '—';
+
     document.getElementById('stream-info').style.display = 'flex';
     document.getElementById('si-status').innerHTML = live
-      ? '<span class=live-dot></span> LIVE'
-      : '<span class=offline-dot></span> offline';
+      ? '<span class="live-dot"></span> LIVE'
+      : '<span class="offline-dot"></span> offline';
     document.getElementById('si-viewers').textContent = viewers;
     document.getElementById('si-game').textContent = game;
-    document.getElementById('chat-label').textContent = live ? `#${chan} — kick chat` : `${chan} is offline`;
+    document.getElementById('chat-label').textContent = live ? `#${chan} — kick live chat` : `${chan} is offline`;
+
+    document.getElementById('watch-btn').disabled = false;
+    document.getElementById('watch-btn').textContent = '▶ WATCH LIVE';
+
     if (live && d.id) {
       connectKickChat(d.id, chan);
     } else {
-      document.getElementById('chat-feed').innerHTML = '<div class=chat-status>streamer is offline</div>';
+      document.getElementById('chat-feed').innerHTML = '<div class="chat-status">streamer is offline — no live chat available</div>';
     }
   } catch(e) {
-    document.getElementById('chat-feed').innerHTML = `<div class=chat-status>could not load — check channel name</div>`;
+    document.getElementById('watch-btn').disabled = false;
+    document.getElementById('watch-btn').textContent = '▶ WATCH LIVE';
+    document.getElementById('chat-feed').innerHTML = `<div class="chat-status">could not load channel — check name or try Twitch</div>`;
   }
 }
 
 function connectKickChat(channelId, chan) {
-  const script = document.createElement('script');
-  script.src = 'https://js.pusher.com/8.2.0/pusher.min.js';
-  script.onload = () => {
+  const doConnect = () => {
     try {
-      const pusher = new Pusher('32cbd69e4b950bf97679', { cluster: 'us2' });
+      const pusher = new window.Pusher('32cbd69e4b950bf97679', { cluster: 'us2' });
       const channel = pusher.subscribe(`channel.${channelId}`);
       channel.bind('App\\Events\\ChatMessageEvent', data => {
+        if (!isLive) return;
         const user = data.sender?.username || 'user';
         const msg = data.content || '';
         addChatMsg(user, msg);
       });
-      document.getElementById('chat-label').textContent = `#${chan} — kick live chat`;
+      document.getElementById('chat-label').textContent = `#${chan} — kick live chat ●`;
       chatSocket = pusher;
     } catch(e) {
-      document.getElementById('chat-feed').innerHTML = '<div class=chat-status>chat connection failed</div>';
+      document.getElementById('chat-feed').innerHTML = '<div class="chat-status">chat connection failed</div>';
     }
   };
-  document.head.appendChild(script);
+
+  if (window.Pusher) {
+    doConnect();
+  } else if (!pusherLoaded) {
+    pusherLoaded = true;
+    const script = document.createElement('script');
+    script.src = 'https://js.pusher.com/8.2.0/pusher.min.js';
+    script.onload = doConnect;
+    script.onerror = () => {
+      document.getElementById('chat-feed').innerHTML = '<div class="chat-status">failed to load chat library</div>';
+    };
+    document.head.appendChild(script);
+  }
 }
 
-// ── TWITCH ────────────────────────────────────────────────────────
+// ═══════════════════════════════════════
+// TWITCH — real IRC via WebSocket
+// ═══════════════════════════════════════
 function loadTwitch(chan) {
   const embedArea = document.getElementById('embed-area');
   const parent = location.hostname || 'itskazgar.github.io';
-  embedArea.innerHTML = `<iframe src="https://player.twitch.tv/?channel=${chan}&parent=${parent}&parent=localhost" width="100%" height="260" frameborder="0" allowfullscreen></iframe>`;
-  document.getElementById('chat-label').textContent = `#${chan} — twitch`;
+  embedArea.innerHTML = `<iframe src="https://player.twitch.tv/?channel=${encodeURIComponent(chan)}&parent=${parent}" width="100%" height="260" frameborder="0" allowfullscreen></iframe>`;
+
   document.getElementById('stream-info').style.display = 'flex';
-  document.getElementById('si-status').innerHTML = '<span class=live-dot></span> LIVE';
-  document.getElementById('si-viewers').textContent = 'open twitch for count';
+  document.getElementById('si-status').innerHTML = '<span class="live-dot"></span> LIVE';
+  document.getElementById('si-viewers').textContent = 'see twitch.tv';
   document.getElementById('si-game').textContent = '—';
-  document.getElementById('chat-feed').innerHTML =
-    `<div class=chat-status>twitch chat requires login — use Kick for live chat demo</div>
-     <div class=chat-status style="margin-top:8px">stream embedded above via Twitch player</div>`;
+  document.getElementById('chat-label').textContent = `#${chan} — twitch live chat ●`;
+
+  document.getElementById('watch-btn').disabled = false;
+  document.getElementById('watch-btn').textContent = '▶ WATCH LIVE';
+
+  connectTwitchIRC(chan);
 }
 
-// ── Chat + Hype ───────────────────────────────────────────────────
-const HYPE_WORDS = ['clip that','pog','poggers','omg','no way','lets go','lgooo',
-  'insane','clutch','gg','sheesh','world record','actually','unreal','KEKW','LULW'];
+function connectTwitchIRC(chan) {
+  // Twitch IRC over WebSocket — anonymous read-only, no login needed
+  const ws = new WebSocket('wss://irc-ws.chat.twitch.tv:443');
+  chatSocket = ws;
 
-function addChatMsg(user, msg) {
+  ws.onopen = () => {
+    ws.send('CAP REQ :twitch.tv/tags twitch.tv/commands');
+    ws.send('PASS oauth:clipai_demo_readonly');
+    ws.send('NICK justinfan' + Math.floor(Math.random() * 99999));
+    ws.send(`JOIN #${chan}`);
+    document.getElementById('chat-feed').innerHTML = '';
+  };
+
+  ws.onmessage = (e) => {
+    if (!isLive) return;
+    const raw = e.data.trim();
+
+    // Keep-alive
+    if (raw.startsWith('PING')) {
+      ws.send('PONG :tmi.twitch.tv');
+      return;
+    }
+
+    // Parse PRIVMSG
+    const match = raw.match(/^(?:@[^ ]+ )?:(\w+)!\w+@\w+\.tmi\.twitch\.tv PRIVMSG #\w+ :(.+)$/);
+    if (match) {
+      const user = match[1];
+      const msg = match[2];
+      addChatMsg(user, msg);
+    }
+  };
+
+  ws.onerror = () => {
+    addStatusMsg('chat connection error — retrying...');
+  };
+
+  ws.onclose = () => {
+    if (isLive) {
+      addStatusMsg('chat disconnected — reconnecting in 3s...');
+      setTimeout(() => { if (isLive) connectTwitchIRC(chan); }, 3000);
+    }
+  };
+}
+
+// ═══════════════════════════════════════
+// CHAT + HYPE ENGINE
+// ═══════════════════════════════════════
+function getKeywords() {
+  return document.getElementById('keywords-input').value
+    .split(',')
+    .map(k => k.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function getSensitivity() {
+  return parseFloat(document.getElementById('sensitivity-slider').value);
+}
+
+const HYPE_EMOTES = ['pog','poggers','omg','kekw','lulw','pepelaugh','monkas','pepega',
+  'clap','widepeeposad','sadge','peeposad','ez','gg','sheesh'];
+
+function addChatMsg(user, rawMsg) {
+  // Sanitize
+  const safeUser = escHtml(user);
+  const safeMsg = escHtml(rawMsg.slice(0, 100));
+  const msgLower = rawMsg.toLowerCase();
+
   const feed = document.getElementById('chat-feed');
-  const isHype = HYPE_WORDS.some(w => msg.toLowerCase().includes(w));
-  const isCaps = msg.length > 4 && msg === msg.toUpperCase();
+
   const div = document.createElement('div');
   div.className = 'chat-msg';
-  div.innerHTML = `<span class=chat-user>${user}</span> <span class=chat-text>${msg.slice(0,80)}</span>`;
+  div.innerHTML = `<span class="chat-user">${safeUser}</span> <span class="chat-text">${safeMsg}</span>`;
   feed.appendChild(div);
-  msgCount++;
-  if (isHype) hypeScore = Math.min(10, hypeScore + 1.2);
-  if (isCaps) hypeScore = Math.min(10, hypeScore + 0.8);
-  hypeScore = Math.min(10, hypeScore + 0.2);
+
+  // Hype scoring
+  const isKeyword = getKeywords().some(w => msgLower.includes(w));
+  const isCaps = rawMsg.length > 4 && rawMsg === rawMsg.toUpperCase() && /[A-Z]/.test(rawMsg);
+  const isEmote = HYPE_EMOTES.some(e => msgLower.includes(e));
+
+  let delta = 0.15; // baseline per message
+  if (isKeyword) delta += 2.0;
+  if (isCaps)    delta += 0.8;
+  if (isEmote)   delta += 0.6;
+
+  hypeScore = Math.min(10, hypeScore + delta);
   updateHype();
-  if (hypeScore >= 8) {
-    const labels = ['clutch_play','hype_moment','funny_moment','highlight'];
-    const label = labels[Math.floor(Math.random()*labels.length)];
-    const ev = document.createElement('div');
-    ev.className = 'hype-event';
-    ev.textContent = `[AI] Score ${hypeScore.toFixed(1)}/10 — ${label} detected`;
-    feed.appendChild(ev);
-    hypeScore = Math.max(0, hypeScore - 3);
+
+  // Auto-clip trigger
+  const threshold = getSensitivity();
+  if (hypeScore >= threshold) {
+    const trigger = isKeyword ? 'keyword' : isCaps ? 'caps-spike' : 'hype-spike';
+    logClip('auto', trigger, hypeScore, currentChan, platform);
+    hypeScore = Math.max(0, hypeScore - 3.5); // cooldown
   }
-  feed.scrollTop = feed.scrollHeight;
-  while (feed.children.length > 80) feed.removeChild(feed.firstChild);
+
+  // Only scroll the chat panel if user is already at (or near) the bottom of it
+  // Never touches window/page scroll
+  const atBottom = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 40;
+  if (atBottom) feed.scrollTop = feed.scrollHeight;
+
+  // Trim old messages
+  while (feed.children.length > 100) feed.removeChild(feed.firstChild);
+}
+
+function addStatusMsg(msg) {
+  const feed = document.getElementById('chat-feed');
+  const div = document.createElement('div');
+  div.className = 'chat-status';
+  div.textContent = msg;
+  feed.appendChild(div);
+  const atBottom = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 40;
+  if (atBottom) feed.scrollTop = feed.scrollHeight;
 }
 
 function updateHype() {
   const pct = (hypeScore / 10) * 100;
-  document.getElementById('hype-fill').style.width = pct + '%';
-  document.getElementById('hype-fill').style.background =
-    hypeScore >= 7 ? 'var(--green)' : hypeScore >= 4 ? 'var(--yellow)' : 'var(--muted)';
+  const fill = document.getElementById('hype-fill');
+  fill.style.width = pct + '%';
+  fill.style.background = hypeScore >= 7 ? 'var(--green)' : hypeScore >= 4 ? 'var(--yellow)' : 'var(--muted)';
   document.getElementById('hype-score').textContent = hypeScore.toFixed(1);
 }
 
 function decayHype() {
-  hypeScore = Math.max(0, hypeScore - 0.5);
+  const rate = parseFloat(document.getElementById('decay-slider').value);
+  hypeScore = Math.max(0, hypeScore - rate);
   updateHype();
 }
 
-// ── Terminal animation (AI-powered) ──────────────────────────────
-// We cache AI-generated lines so we only call the API once per session,
-// then loop the same sequence on repeat (no extra API calls).
-let cachedLines = null;
-let termRunning = false;
+// ═══════════════════════════════════════
+// CLIP LOGGING
+// ═══════════════════════════════════════
+const CLIP_LABELS = ['clutch_play','hype_moment','funny_moment','highlight','big_moment','insane_play'];
 
-// Color helpers matching the site palette
-function c(color, text) {
-  const colors = {
-    cyan: '#00d4ff', green: '#00ff88', yellow: '#ffcc00',
-    muted: '#4a5a6e', dim: '#2a3444', bright: '#e8f4ff', text: '#c8d8e8'
+function logClip(type, trigger, score, chan, plat) {
+  const now = new Date();
+  const timeStr = now.toTimeString().slice(0,8);
+  const label = document.getElementById('label-input').value.trim() || 'highlight';
+  const autoLabel = type === 'manual'
+    ? `${label}_manual`
+    : `${label}_${CLIP_LABELS[Math.floor(Math.random() * CLIP_LABELS.length)]}`;
+
+  const clip = {
+    id: clips.length + 1,
+    time: timeStr,
+    label: autoLabel,
+    score: score.toFixed(1),
+    trigger,
+    chan,
+    platform: plat,
+    type
   };
-  return `<span style="color:${colors[color]||color}">${text}</span>`;
+  clips.push(clip);
+
+  // Show in chat feed
+  const feed = document.getElementById('chat-feed');
+  const ev = document.createElement('div');
+  ev.className = type === 'manual' ? 'clip-event' : 'hype-event';
+  ev.textContent = type === 'manual'
+    ? `[CLIP] Manual clip logged at ${timeStr}`
+    : `[AI] ${score.toFixed(1)}/10 — ${autoLabel} — ${trigger}`;
+  feed.appendChild(ev);
+  feed.scrollTop = feed.scrollHeight;
+
+  // Update clip log
+  renderClipLog();
+
+  // Update counter
+  document.getElementById('si-clips').textContent = clips.length;
 }
 
-// ── Agent configs — each loop picks one to show the tool is backend-agnostic ──
-const AGENTS = [
-  { name: 'ollama',      model: 'hermes3',                       cmd: 'python3 demo_live.py xqc --agent ollama --model hermes3' },
-  { name: 'claude',      model: 'claude-haiku-4-5',              cmd: 'python3 demo_live.py xqc --agent claude --api-key sk-ant-...' },
-  { name: 'openrouter',  model: 'mistralai/mistral-7b-instruct', cmd: 'python3 demo_live.py xqc --agent openrouter --model mistralai/mistral-7b-instruct' },
-  { name: 'ollama',      model: 'llama3.2',                      cmd: 'python3 demo_live.py xqc --agent ollama --model llama3.2' },
-  { name: 'kimi',        model: 'moonshot-v1-8k',                cmd: 'python3 demo_live.py xqc --agent kimi --api-key ... --model moonshot-v1-8k' },
-  { name: 'groq',        model: 'llama3-8b-8192',                cmd: 'python3 demo_live.py xqc --agent groq --api-key gsk_...' },
-  { name: 'ollama',      model: 'mistral',                       cmd: 'python3 demo_live.py xqc --agent ollama --model mistral' },
-];
-let agentIdx = 0;
+function renderClipLog() {
+  const body = document.getElementById('clip-log-body');
+  document.getElementById('clip-count').textContent = clips.length + ' clip' + (clips.length !== 1 ? 's' : '');
 
-// Parse AI text response into {html, delay} render objects
-function parseAILines(rawText, agent) {
-  const result = [];
-  const boot = [
-    { html: `${c('cyan','$')} ${c('bright', agent.cmd)}`, delay: 0 },
-    { html: `${c('green',' [~] connecting to twitch IRC — no login needed')}`, delay: 600 },
-    { html: `${c('muted',' agent      ')} ${c('cyan', agent.name)}`, delay: 1000 },
-    { html: `${c('muted',' model      ')} ${c('cyan', agent.model)}`, delay: 1100 },
-    { html: `${c('muted',' threshold  ')} ${c('cyan','7.5 / 10')}`, delay: 1200 },
-    { html: `${c('text',' [>] joined #xqc — watching chat')}`, delay: 1500 },
-    { html: `${c('cyan',' [AI] autopilot active — bring your own agent')}`, delay: 1900 },
-  ];
-  result.push(...boot);
-
-  let t = 2200;
-  const aiLines = rawText.trim().split('\n').filter(l => l.trim());
-  for (const line of aiLines) {
-    if (line.startsWith('---')) {
-      // skip separators
-    } else if (line.startsWith('>> CLIP:')) {
-      const rest = line.replace('>> CLIP:', '').trim();
-      result.push({ html: `${c('yellow',' [!] KEYWORD HIT    ')}${c('bright','"clip that" detected')}`, delay: t }); t += 130;
-      result.push({ html: `${c('yellow',' [!] asking ')}${c('cyan', agent.name + '/' + agent.model)}${c('yellow','...')}`, delay: t }); t += 400;
-      result.push({ html: `${c('green',' [AI] ')}${c('bright', rest)}`, delay: t }); t += 120;
-      result.push({ html: `${c('green',' [✓] CLIP SAVED      ')}${c('muted','→ 9:16 crop → subtitles')}`, delay: t }); t += 220;
-    } else if (line.startsWith('>> HYPE:')) {
-      const rest = line.replace('>> HYPE:', '').trim();
-      result.push({ html: `${c('yellow',' [!] HYPE SPIKE      ')}${c('bright', rest)}`, delay: t }); t += 130;
-      result.push({ html: `${c('yellow',' [!] asking ')}${c('cyan', agent.name + '/' + agent.model)}${c('yellow','...')}`, delay: t }); t += 400;
-      result.push({ html: `${c('green',' [AI] clip: true — auto-clip triggered')}`, delay: t }); t += 120;
-      result.push({ html: `${c('green',' [✓] CLIP SAVED      ')}${c('muted','→ export ready')}`, delay: t }); t += 220;
-    } else if (line.includes(': ')) {
-      const colon = line.indexOf(': ');
-      const user = line.slice(0, colon).trim();
-      const msg  = line.slice(colon + 2).trim();
-      result.push({ html: `${c('muted',' ' + user.padEnd(16))}${c('text', msg)}`, delay: t });
-      t += 220 + Math.random() * 140;
-    }
+  if (clips.length === 0) {
+    body.innerHTML = '<div class="clip-empty">no clips logged yet — start a stream and the AI will detect hype moments</div>';
+    return;
   }
 
-  result.push({ html: `${c('cyan',' [✓] session done — swap --agent for any backend')}`, delay: t });
-  result.push({ html: `${c('cyan','$')} ${c('muted','_')}`, delay: t + 200 });
-  return result;
-}
+  body.innerHTML = '';
+  // Show newest first
+  [...clips].reverse().forEach(c => {
+    const entry = document.createElement('div');
+    entry.className = 'clip-entry';
 
-// Fallback: realistic static lines, still cycles agents
-function fallbackLines(agent) {
-  const chat = [
-    ['xqcfan99',    'LETS GOOO'],
-    ['pogmaster',   'clip that clip that'],
-    ['streamer_lv', 'no way bro he actually did it'],
-    ['h4rdcore22',  'KEKW I cant believe this'],
-    ['realmike',    'world record speedrun pace'],
-    ['clip_this1',  'clip it RIGHT NOW'],
-    ['hypetrain',   'POGGERS bro what just happened'],
-    ['lurker404',   'that was legitimately unreal'],
-    ['fasttyper1',  'lets go lets go'],
-    ['viewer882',   'chat are you seeing this??'],
-    ['gamer_uk',    'LGOOO best stream of the year'],
-    ['realmike',    'highlight of the month'],
-  ];
-  const result = [
-    { html: `${c('cyan','$')} ${c('bright', agent.cmd)}`, delay: 0 },
-    { html: `${c('green',' [~] connecting to twitch IRC — no login needed')}`, delay: 600 },
-    { html: `${c('muted',' agent      ')} ${c('cyan', agent.name)}`, delay: 1000 },
-    { html: `${c('muted',' model      ')} ${c('cyan', agent.model)}`, delay: 1100 },
-    { html: `${c('muted',' threshold  ')} ${c('cyan','7.5 / 10')}`, delay: 1200 },
-    { html: `${c('text',' [>] joined #xqc — watching chat')}`, delay: 1500 },
-    { html: `${c('cyan',' [AI] autopilot active — bring your own agent')}`, delay: 1900 },
-  ];
-  let t = 2200;
-  chat.forEach(([user, msg], i) => {
-    result.push({ html: `${c('muted',' ' + user.padEnd(16))}${c('text', msg)}`, delay: t });
-    t += 260 + Math.random() * 140;
-    if (i === 1) {
-      result.push({ html: `${c('yellow',' [!] KEYWORD HIT    ')}${c('bright','"clip that" detected')}`, delay: t }); t += 130;
-      result.push({ html: `${c('yellow',' [!] asking ')}${c('cyan', agent.name + '/' + agent.model)}${c('yellow','...')}`, delay: t }); t += 450;
-      result.push({ html: `${c('green',' [AI] clip: true — 9.1/10 — hype_moment')}`, delay: t }); t += 130;
-      result.push({ html: `${c('green',' [✓] CLIP SAVED      ')}${c('muted','→ 9:16 crop → subtitles')}`, delay: t }); t += 220;
+    let twitchLink = '';
+    if (c.platform === 'twitch' && c.chan) {
+      twitchLink = `<a href="https://twitch.tv/${c.chan}" target="_blank" style="color:var(--cyan);font-size:10px;text-decoration:none">open stream ↗</a>`;
+    } else if (c.platform === 'kick' && c.chan) {
+      twitchLink = `<a href="https://kick.com/${c.chan}" target="_blank" style="color:var(--cyan);font-size:10px;text-decoration:none">open stream ↗</a>`;
     }
-    if (i === 7) {
-      result.push({ html: `${c('yellow',' [!] HYPE SPIKE      ')}${c('bright','8.7/10 — 12 msgs in 5s')}`, delay: t }); t += 130;
-      result.push({ html: `${c('yellow',' [!] asking ')}${c('cyan', agent.name + '/' + agent.model)}${c('yellow','...')}`, delay: t }); t += 450;
-      result.push({ html: `${c('green',' [AI] clip: true — clutch_play')}`, delay: t }); t += 130;
-      result.push({ html: `${c('green',' [✓] CLIP SAVED      ')}${c('muted','→ export ready')}`, delay: t }); t += 220;
-    }
+
+    entry.innerHTML = `
+      <span class="clip-time">${c.time}</span>
+      <span class="clip-label">${c.label}</span>
+      <span class="clip-score">${c.score}/10</span>
+      <span class="clip-trigger">[${c.trigger}]</span>
+      <span class="clip-trigger">${c.platform}/${c.chan}</span>
+      ${twitchLink}
+    `;
+    body.appendChild(entry);
   });
-  result.push({ html: `${c('cyan',' [✓] 2 clips — swap --agent for any backend')}`, delay: t });
-  result.push({ html: `${c('cyan','$')} ${c('muted','_')}`, delay: t + 200 });
-  return result;
 }
 
-// Each loop picks the next agent so visitors see different backends on repeat
-async function initTerminal() {
-  const agent = AGENTS[agentIdx % AGENTS.length];
-  agentIdx++;
+function clearClips() {
+  clips = [];
+  document.getElementById('si-clips').textContent = '0';
+  renderClipLog();
+}
 
-  try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        messages: [{
-          role: 'user',
-          content: `Generate a realistic Twitch chat log for streamer xqc during a hype gaming moment.
-Output ONLY lines in this exact format, nothing else:
-- Regular chat: "username: message"
-- Keyword clip trigger: ">> CLIP: 9.2/10 — hype_moment — chat going insane"
-- Auto hype trigger:   ">> HYPE: 8.4/10 — 14 msgs in 5s — clutch play"
+function manualClip() {
+  if (!isLive) return;
+  logClip('manual', 'manual', hypeScore, currentChan, platform);
+}
 
-Rules:
-- 16 chat lines total
-- Realistic Twitch usernames (numbers, underscores ok)
-- Authentic short chat: KEKW LULW PogChamp clip that lets go no way insane etc
-- Exactly 1 >> CLIP and 1 >> HYPE event, spread apart
-- No --- separators, no markdown, no explanation, just the lines`
-        }]
-      })
-    });
+// ═══════════════════════════════════════
+// SLIDER LABELS
+// ═══════════════════════════════════════
+function updateSensLabel() {
+  document.getElementById('sens-val').textContent = document.getElementById('sensitivity-slider').value;
+}
+function updateDecayLabel() {
+  document.getElementById('decay-val').textContent = document.getElementById('decay-slider').value;
+}
 
-    if (!resp.ok) throw new Error('API error');
-    const data = await resp.json();
-    const text = data.content?.map(b => b.text || '').join('') || '';
-    cachedLines = parseAILines(text, agent);
-  } catch(e) {
-    cachedLines = fallbackLines(agent);
+// ═══════════════════════════════════════
+// SANITIZER
+// ═══════════════════════════════════════
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// ═══════════════════════════════════════
+// TERMINAL ANIMATION
+// ═══════════════════════════════════════
+const CHAT_LINES = [
+  ['xqcfan99','LETS GOOO'],['pogmaster','clip that clip that'],
+  ['streamer_lv','no way bro'],['h4rdcore22','KEKW'],
+  ['realmike','he actually did it'],['noway_tv','OMEGALUL'],
+  ['clip_this1','clip it NOW'],['hypetrain','POGGERS POGGERS'],
+  ['lurker404','insane'],['xqcfan99','NO WAY NO WAY'],
+  ['fasttyper1','lets go lets go'],['viewer882','world record??'],
+  ['gamer_uk','LGOOO'],['realmike','stream highlight incoming'],
+];
+
+const S = [
+  {d:0,    h:'<span style="color:#00d4ff">$</span> <span style="color:#e8f4ff">python3 src/clipai_v2.py watch kick.com/xqc --autopilot --vertical --subtitles</span>'},
+  {d:500,  h:'<span style="color:#00ff88"> [~] Demo mode — token gate bypassed</span>'},
+  {d:900,  h:'<span style="color:#4a5a6e">     Platform  KICK</span>'},
+  {d:1000, h:'<span style="color:#4a5a6e">     LLM       claude-sonnet-4-20250514</span>'},
+  {d:1100, h:'<span style="color:#4a5a6e">     Post-proc  vertical + subtitles</span>'},
+  {d:1400, h:'<span style="color:#c8d8e8"> [>] Connecting to kick.com/xqc</span>'},
+  {d:1900, h:'<span style="color:#00ff88"> [✓] Buffering stream</span>'},
+  {d:2100, h:'<span style="color:#00d4ff"> [AI] Autopilot active...</span>'},
+  {d:2300, h:'<span style="color:#2a3444"> ──────────────────────────────────────</span>'},
+];
+
+let t = 2500;
+CHAT_LINES.forEach((row, i) => {
+  const [user, msg] = row;
+  S.push({d:t, h:`<span style="color:#4a5a6e"> ${user.padEnd(14)}</span><span style="color:#c8d8e8">${msg}</span>`});
+  t += 260 + Math.random() * 150;
+
+  if (msg.toLowerCase().includes('clip that') && i < 5) {
+    S.push({d:t, h:'<span style="color:#ffcc00"> [!] Keyword: clip that</span>'}); t += 150;
+    S.push({d:t, h:'<span style="color:#00ff88"> [AI] 9.1/10 — hype_moment</span>'}); t += 150;
+    S.push({d:t, h:'<span style="color:#00ff88"> [✓] clip logged → cropping 9:16 → subtitles</span>'}); t += 150;
+    S.push({d:t, h:'<span style="color:#2a3444"> ──────────────────────────────────────</span>'}); t += 150;
   }
+  if (i === 10) {
+    S.push({d:t, h:'<span style="color:#ffcc00"> [!] Hype spike 8.7/10</span>'}); t += 150;
+    S.push({d:t, h:'<span style="color:#00ff88"> [AI] clutch_play — clip logged</span>'}); t += 150;
+    S.push({d:t, h:'<span style="color:#2a3444"> ──────────────────────────────────────</span>'}); t += 150;
+  }
+});
+S.push({d:t,     h:'<span style="color:#00d4ff"> [✓] 2 clips ready to review</span>'});
+S.push({d:t+200, h:'<span style="color:#00d4ff">$</span> <span class="cur"></span>'});
 
-  playLines(cachedLines);
-}
+const TOTAL = t + 800;
+let termFadeTimeout = null;
 
-// On each repeat loop, fetch fresh lines with the next agent
-function playLines(lines) {
+function runTerm() {
   const el = document.getElementById('term');
-  el.innerHTML = '';
-  let i = 0;
-  function next() {
-    if (i >= lines.length) {
-      cachedLines = null; // clear so next loop re-fetches with next agent
-      setTimeout(() => initTerminal(), 3000);
-      return;
-    }
-    const { html, delay } = lines[i++];
-    const div = document.createElement('div');
-    div.className = 'ln';
-    div.innerHTML = html;
-    el.appendChild(div);
-    el.scrollTop = el.scrollHeight;
-    setTimeout(next, delay);
-  }
-  next();
+  // Fade out before clearing
+  el.style.opacity = '0';
+  el.style.transition = 'opacity 0.4s';
+  termFadeTimeout = setTimeout(() => {
+    el.innerHTML = '';
+    el.style.opacity = '1';
+    S.forEach(s => setTimeout(() => {
+      const d = document.createElement('div');
+      d.className = 'ln';
+      d.innerHTML = s.h;
+      el.appendChild(d);
+      el.scrollTop = el.scrollHeight;
+    }, s.d));
+  }, 400);
 }
 
-// Start
-initTerminal();
+runTerm();
+setInterval(runTerm, TOTAL + 2400);
+
+// ═══════════════════════════════════════
+// COPY BUTTONS
+// ═══════════════════════════════════════
+const COPY_CMDS = {
+  clone:   'git clone https://github.com/itsKazgar/clipai',
+  install: 'pip install -r requirements.txt',
+  demo:    'python3 demo_live.py xqc --keywords "clip that,lets go"',
+  full:    'python3 src/clipai_v2.py watch twitch.tv/xqc --autopilot --vertical --subtitles --demo',
+};
 
 function cpy(btn, text) {
   navigator.clipboard.writeText(text).then(() => {
+    const orig = btn.textContent;
     btn.textContent = 'copied!';
-    setTimeout(() => { btn.textContent = 'copy'; }, 2000);
+    setTimeout(() => { btn.textContent = orig; }, 2000);
   });
 }
 </script>
+
 </body>
 </html>
