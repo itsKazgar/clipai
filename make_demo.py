@@ -71,7 +71,6 @@ footer a{color:var(--cyan);text-decoration:none}
 ██║     ██║     ██║██╔═══╝     ██╔══██║██║
 ╚██████╗███████╗██║██║         ██║  ██║██║
  ╚═════╝╚══════╝╚═╝╚═╝         ╚═╝  ╚═╝╚═╝</pre>
-<div class=tag>real twitch chat &middot; multi-llm &middot; auto vertical crop &middot; whisper subtitles &middot; social export &middot; <em>$CLIP</em></div>
 </div>
 
 <div class=term>
