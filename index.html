@@ -131,7 +131,7 @@ header { border-bottom: 1px solid var(--border); padding: 14px 0; }
 
 /* ── Main layout ── */
 .live-body { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
-@media(max-width: 640px) { .live-body { grid-template-columns: 1fr; } }
+@media(max-width: 640px) { .live-body { grid-template-columns: 1fr; } .chat-feed { min-height: 160px !important; max-height: 160px !important; height: 160px !important; overflow-y: scroll !important; } }
 
 /* ── Stream side ── */
 .live-stream { border-right: 1px solid var(--border); }
@@ -813,10 +813,13 @@ function addChatMsg(user, rawMsg) {
     hypeScore = Math.max(0, hypeScore - 3.5); // cooldown
   }
 
-  // Only scroll the chat panel if user is already at (or near) the bottom of it
-  // Never touches window/page scroll
-  const atBottom = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 40;
-  if (atBottom) feed.scrollTop = feed.scrollHeight;
+  // On mobile, never auto-scroll — it fights with page scroll and shifts the view
+  // On desktop, only scroll if already at the bottom
+  const isMobile = window.matchMedia('(max-width: 640px)').matches;
+  if (!isMobile) {
+    const atBottom = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 40;
+    if (atBottom) feed.scrollTop = feed.scrollHeight;
+  }
 
   // Trim old messages
   while (feed.children.length > 100) feed.removeChild(feed.firstChild);
@@ -828,8 +831,11 @@ function addStatusMsg(msg) {
   div.className = 'chat-status';
   div.textContent = msg;
   feed.appendChild(div);
-  const atBottom = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 40;
-  if (atBottom) feed.scrollTop = feed.scrollHeight;
+  const isMobile = window.matchMedia('(max-width: 640px)').matches;
+  if (!isMobile) {
+    const atBottom = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 40;
+    if (atBottom) feed.scrollTop = feed.scrollHeight;
+  }
 }
 
 function updateHype() {
