@@ -53,6 +53,12 @@ header{border-bottom:1px solid var(--border);padding:14px 0}
 .ca-label{font-size:10px;color:var(--muted);letter-spacing:.15em;text-transform:uppercase;margin-bottom:6px}
 .ca-addr{font-size:11px;font-weight:700;color:var(--yellow);word-break:break-all;padding:10px;background:var(--bg3);border:1px solid var(--dim);margin-bottom:14px}
 .coin-steps{font-size:12px;color:var(--muted);line-height:2.2}
+.stream-box{border:1px solid var(--border);padding:16px;margin-bottom:32px}
+.stream-controls{display:flex;gap:8px;flex-wrap:wrap}
+.stream-controls input{flex:1;min-width:180px;background:var(--bg);border:1px solid var(--dim);color:var(--bright);font-family:inherit;font-size:12px;padding:7px 10px;outline:none}
+.stream-controls input:focus{border-color:var(--cyan)}
+.btn{background:transparent;border:1px solid var(--cyan);color:var(--cyan);font-family:inherit;font-size:11px;padding:7px 18px;cursor:pointer;text-transform:uppercase;transition:all .15s;white-space:nowrap}
+.btn:hover{background:var(--cyan);color:var(--bg)}
 footer{border-top:1px solid var(--border);padding:18px 0;font-size:11px;color:var(--muted);text-align:center}
 footer a{color:var(--cyan);text-decoration:none}
 @media(max-width:480px){.ascii{font-size:5.5px}.grid{grid-template-columns:1fr}}
@@ -85,6 +91,18 @@ footer a{color:var(--cyan);text-decoration:none}
 </div>
 
 <div class=sec>try it right now</div>
+<div class=sec>watch live</div>
+<div class=stream-box>
+  <div class=stream-controls>
+    <input id=schan placeholder="enter streamer name e.g. xqc" />
+    <button class=btn onclick=loadStream()>&#9654; WATCH LIVE</button>
+  </div>
+  <div id=stream-embed style="display:none;margin-top:12px">
+    <iframe id=twitch-embed width="100%" height="400" frameborder="0" scrolling="no" allowfullscreen></iframe>
+    <div style="font-size:10px;color:var(--muted);margin-top:6px">live stream embedded via twitch &middot; works on itsKazgar.github.io</div>
+  </div>
+</div>
+
 <div class=qs>
   <div class=qs-t>&#9654; works with python only &mdash; no token needed</div>
   <div class=qs-row><span class=qs-n>01.</span><div class=qs-cmd>git clone https://github.com/itsKazgar/clipai && cd clipai</div></div>
@@ -205,6 +223,14 @@ function runTerm(){
   },s.d));
 }
 runTerm();setInterval(runTerm,TOTAL+2000);
+function loadStream(){
+  const chan=document.getElementById("schan").value.trim().toLowerCase();
+  if(!chan)return;
+  const embed=document.getElementById("stream-embed");
+  const iframe=document.getElementById("twitch-embed");
+  iframe.src=`https://player.twitch.tv/?channel=${chan}&parent=itskazgar.github.io&parent=localhost`;
+  embed.style.display="block";
+}
 function cpy(btn,text){
   navigator.clipboard.writeText(text).then(()=>{btn.textContent='copied!';setTimeout(()=>{btn.textContent='copy';},2000);});
 }
