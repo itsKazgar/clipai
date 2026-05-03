@@ -113,6 +113,42 @@ class AIClipper:
                         if callback: callback(label=clip["label"],start=clip["start"],duration=clip["end"]-clip["start"])
                 buf=[]
 
+
+try:
+    from whisper_module import WhisperTranscriber, TwitchChatReader, CombinedFeed
+    WHISPER_AVAILABLE = True
+except ImportError:
+    WHISPER_AVAILABLE = False
+
+def run_autopilot_whisper(capture, ai, args):
+    print(c("c","
+  -- AUTOPILOT + WHISPER MODE --"))
+    print(c("d","  Real-time audio transcription active"))
+    print(c("d","  Ctrl+C to stop
+"))
+    transcriber = WhisperTranscriber(model_size="base", chunk_seconds=15)
+    if not transcriber.load_model():
+        autopilot(capture, ai, args)
+        return
+    chat = None
+    if "twitch" in args.url.lower():
+        channel = args.url.split("/")[-1]
+        chat = TwitchChatReader(channel)
+        chat.start()
+        print(c("g", f"  [✓] Twitch chat reader connected"))
+    transcriber.start(str(capture.buffer_file))
+    feed = CombinedFeed(whisper=transcriber, chat=chat)
+    feed.start()
+    kws = args.keywords.split(",") if args.keywords else []
+    def on_clip(label=None, start=0, duration=60):
+        print(c("y", f"
+  [CLIP] Auto-clipping: {label}"))
+        capture.clip(start, duration, label)
+    ai.watch_live(feed.get_feed(), prompt=args.prompt, keywords=kws, callback=on_clip)
+    transcriber.stop()
+    feed.stop()
+    if chat: chat.stop()
+
 def banner():
     print(c("c","""
  ██████╗██╗     ██╗██████╗      █████╗ ██╗
@@ -190,7 +226,11 @@ def main():
         ai=AIClipper(api_key)
         capture.start_buffer(args.quality)
         try:
-            if args.autopilot or not args.manual: autopilot(capture,ai,args)
+            if args.autopilot or not args.manual:
+            if WHISPER_AVAILABLE and not getattr(args,"demo",False):
+                run_autopilot_whisper(capture,ai,args)
+            else:
+                autopilot(capture,ai,args)
             else: interactive(capture,ai,args)
         except KeyboardInterrupt: print(c("d","\n\n  [■] Stopped"))
         finally:
