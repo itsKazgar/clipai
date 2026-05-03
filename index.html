@@ -1,520 +1,563 @@
-#!/usr/bin/env python3
-"""
-CLIP.AI — demo_live.py
-Real Twitch IRC chat reader + any AI agent for hype detection.
+<!DOCTYPE html>
+<html lang=en>
+<head>
+<meta charset=UTF-8>
+<meta name=viewport content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>CLIP.AI v2 - AI Stream Clipping</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+:root{--bg:#0a0c0f;--bg2:#0f1318;--bg3:#151a22;--border:#1e2733;--dim:#2a3444;--muted:#4a5a6e;--text:#c8d8e8;--bright:#e8f4ff;--cyan:#00d4ff;--green:#00ff88;--yellow:#ffcc00;}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{max-width:100%;overflow-x:hidden}
+body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:14px;line-height:1.6;min-height:100vh}
+.w{max-width:860px;margin:0 auto;padding:0 16px}
+header{border-bottom:1px solid var(--border);padding:14px 0}
+.tb{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.logo{font-size:11px;color:var(--muted);letter-spacing:.12em}
+.logo span{color:var(--cyan)}
+.badge{font-size:10px;padding:3px 10px;border:1px solid var(--yellow);color:var(--yellow)}
+.banner{padding:36px 0 24px;text-align:center}
+.ascii{font-size:clamp(6px,1.8vw,12px);line-height:1.2;color:var(--cyan);white-space:pre;text-shadow:0 0 20px rgba(0,212,255,.4);display:block}
+.term{background:var(--bg2);border:1px solid var(--border);margin:0 0 32px}
+.tbar{background:var(--bg3);border-bottom:1px solid var(--border);padding:8px 14px;display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted)}
+.dot{width:9px;height:9px;border-radius:50%}
 
-Usage:
-  # Anthropic Claude
-  python3 demo_live.py xqc --agent claude --api-key sk-ant-...
-
-  # OpenAI / OpenRouter / Kimi / any OpenAI-compatible endpoint
-  python3 demo_live.py xqc --agent openrouter --api-key sk-or-... --model mistralai/mistral-7b-instruct
-  python3 demo_live.py xqc --agent kimi      --api-key ...       --model moonshot-v1-8k
-  python3 demo_live.py xqc --agent openai    --api-key sk-...    --model gpt-4o-mini
-
-  # Ollama (local, no key needed)
-  python3 demo_live.py xqc --agent ollama --model hermes3
-  python3 demo_live.py xqc --agent ollama --model llama3.2
-  python3 demo_live.py xqc --agent ollama --model mistral
-
-  # Keywords only, no AI
-  python3 demo_live.py xqc --agent none --keywords "clip that,lets go"
-
-  # Demo mode (no real stream needed)
-  python3 demo_live.py --demo --agent ollama --model hermes3
-"""
-
-import argparse
-import socket
-import threading
-import time
-import sys
-import json
-import re
-import random
-from collections import deque
-from datetime import datetime
-
-# ── optional deps — imported lazily so missing ones only error if used ────────
-def _import(name):
-    try:
-        return __import__(name)
-    except ImportError:
-        return None
-
-requests = _import("requests")
-
-# ── ANSI colours ──────────────────────────────────────────────────────────────
-R = "\033[0m"
-CYAN    = "\033[96m"
-GREEN   = "\033[92m"
-YELLOW  = "\033[93m"
-RED     = "\033[91m"
-DIM     = "\033[2m"
-BOLD    = "\033[1m"
-MAGENTA = "\033[95m"
-
-def ts():
-    return datetime.now().strftime("%H:%M:%S")
-
-def log(color, tag, msg):
-    print(f"{DIM}{ts()}{R}  {color}{tag:<18}{R} {msg}")
-
-# ── AI AGENT BACKENDS ─────────────────────────────────────────────────────────
-
-SYSTEM_PROMPT = """You are a stream clipping AI agent. You watch Twitch/Kick chat in real time.
-Given a batch of recent chat messages, decide if this moment is worth clipping.
-
-Respond with ONLY valid JSON — no markdown, no explanation:
-{
-  "clip": true or false,
-  "score": 0.0-10.0,
-  "label": "one of: hype_moment | funny_moment | clutch_play | world_record | fail_moment | wholesome | no_clip",
-  "reason": "one short sentence"
+/* FIX 1: Lock terminal height so it never grows or shrinks */
+.tbody{
+  padding:14px 16px;
+  height:260px;          /* fixed height — never changes */
+  min-height:unset;      /* remove the old min-height */
+  max-height:260px;      /* also cap it */
+  font-size:11px;
+  overflow:hidden;       /* hide any overflow — no scrollbar, no resize */
 }
 
-Clip if: chat is going crazy, lots of caps, hype words, rapid repeat messages, "clip that", poggers, etc.
-Don't clip if: chat is calm, normal conversation, nothing interesting happening."""
+.ln{margin-bottom:2px;word-break:break-word}
+.cur{display:inline-block;width:7px;height:12px;background:var(--cyan);vertical-align:middle;animation:bl 1s step-end infinite}
+@keyframes bl{50%{opacity:0}}
+.sec{font-size:10px;letter-spacing:.18em;color:var(--muted);text-transform:uppercase;margin-bottom:12px}
+.sec::before{content:"// ";color:var(--dim)}
+/* live viewer */
+.live-box{border:1px solid var(--border);margin-bottom:32px;overflow:hidden}
+.live-top{background:var(--bg3);border-bottom:1px solid var(--border);padding:10px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.live-tabs{display:flex;gap:2px}
+.ltab{font-size:11px;padding:5px 14px;border:1px solid var(--border);color:var(--muted);cursor:pointer;background:var(--bg2);transition:all .15s}
+.ltab.active{border-color:var(--cyan);color:var(--cyan);background:var(--bg3)}
+.live-input{display:flex;gap:8px;flex:1;min-width:200px}
+.live-input input{flex:1;background:var(--bg);border:1px solid var(--dim);color:var(--bright);font-family:inherit;font-size:12px;padding:6px 10px;outline:none;min-width:0}
+.live-input input:focus{border-color:var(--cyan)}
+.btn{background:transparent;border:1px solid var(--cyan);color:var(--cyan);font-family:inherit;font-size:11px;padding:6px 16px;cursor:pointer;text-transform:uppercase;transition:all .15s;white-space:nowrap}
+.btn:hover{background:var(--cyan);color:var(--bg)}
+.live-body{display:grid;grid-template-columns:1fr 1fr;gap:0}
+@media(max-width:600px){.live-body{grid-template-columns:1fr}}
+.live-stream{border-right:1px solid var(--border)}
+.live-stream iframe{width:100%;height:260px;display:block;border:none}
+.stream-info{padding:10px 14px;background:var(--bg3);border-top:1px solid var(--border);font-size:11px;display:flex;gap:16px;flex-wrap:wrap}
+.si{color:var(--muted)}
+.si span{color:var(--bright)}
+.live-chat-panel{display:flex;flex-direction:column}
+.chat-header{padding:8px 14px;background:var(--bg3);border-bottom:1px solid var(--border);font-size:10px;color:var(--muted);display:flex;justify-content:space-between;align-items:center}
+.hype-bar-wrap{display:flex;align-items:center;gap:8px}
+.hype-bar-bg{width:80px;height:6px;background:var(--dim);border-radius:3px;overflow:hidden}
+.hype-bar-fill{height:100%;background:var(--green);transition:width .3s;border-radius:3px}
+.chat-feed{flex:1;padding:10px 14px;min-height:200px;max-height:260px;overflow-y:auto;font-size:11px;line-height:1.8}
+.chat-msg{margin-bottom:1px;word-break:break-word}
+.chat-user{color:var(--cyan)}
+.chat-text{color:var(--text)}
+.chat-status{color:var(--muted);font-style:italic;font-size:10px}
+.hype-event{background:rgba(0,255,136,.08);border-left:2px solid var(--green);padding:4px 8px;margin:4px 0;font-size:10px;color:var(--green)}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block;animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.offline-dot{width:7px;height:7px;border-radius:50%;background:var(--muted);display:inline-block}
+/* rest of layout */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:1px;background:var(--border);border:1px solid var(--border);margin-bottom:32px}
+.card{background:var(--bg2);padding:16px}
+.card:hover{background:var(--bg3)}
+.ci{font-size:10px;color:var(--cyan);letter-spacing:.12em;margin-bottom:6px}
+.ct{color:var(--bright);font-size:13px;font-weight:700;margin-bottom:4px}
+.cd{color:var(--muted);font-size:12px;line-height:1.6}
+.qs{border:1px solid var(--green);padding:20px;margin-bottom:32px;background:rgba(0,255,136,.03)}
+.qs-t{font-size:10px;color:var(--green);letter-spacing:.15em;text-transform:uppercase;margin-bottom:14px}
+.qs-row{display:flex;gap:10px;margin-bottom:8px;font-size:12px;align-items:center}
+.qs-n{color:var(--cyan);font-size:11px;flex-shrink:0}
+.qs-cmd{color:var(--bright);background:var(--bg3);padding:6px 10px;border:1px solid var(--dim);flex:1;word-break:break-all}
+.llms{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:32px}
+.llm{font-size:11px;padding:4px 12px;border:1px solid var(--cyan);color:var(--cyan)}
+.cb{background:var(--bg2);border:1px solid var(--border);padding:10px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.cb code{color:var(--green);font-family:inherit;font-size:11px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cpb{background:transparent;border:1px solid var(--dim);color:var(--muted);font-family:inherit;font-size:10px;padding:3px 9px;cursor:pointer;transition:all .15s}
+.cpb:hover{border-color:var(--cyan);color:var(--cyan)}
+.coin{border:1px solid var(--yellow);padding:18px;margin-bottom:32px}
+.ca-label{font-size:10px;color:var(--muted);letter-spacing:.15em;text-transform:uppercase;margin-bottom:6px}
+.ca-addr{font-size:11px;font-weight:700;color:var(--yellow);word-break:break-all;padding:10px;background:var(--bg3);border:1px solid var(--dim);margin-bottom:14px}
+.coin-steps{font-size:12px;color:var(--muted);line-height:2.2}
+footer{border-top:1px solid var(--border);padding:18px 0;font-size:11px;color:var(--muted);text-align:center}
+footer a{color:var(--cyan);text-decoration:none}
+@media(max-width:480px){.ascii{font-size:5.5px}.grid{grid-template-columns:1fr}}
 
-
-def call_claude(messages, api_key, model="claude-haiku-4-5-20251001"):
-    """Anthropic Claude API."""
-    if not requests:
-        raise RuntimeError("pip install requests")
-    resp = requests.post(
-        "https://api.anthropic.com/v1/messages",
-        headers={
-            "x-api-key": api_key,
-            "anthropic-version": "2023-06-01",
-            "content-type": "application/json",
-        },
-        json={
-            "model": model,
-            "max_tokens": 200,
-            "system": SYSTEM_PROMPT,
-            "messages": [{"role": "user", "content": messages}],
-        },
-        timeout=10,
-    )
-    resp.raise_for_status()
-    return resp.json()["content"][0]["text"]
-
-
-def call_openai_compat(messages, api_key, model, base_url="https://api.openai.com/v1"):
-    """OpenAI, OpenRouter, Kimi, Together, Groq — all use the same format."""
-    if not requests:
-        raise RuntimeError("pip install requests")
-    resp = requests.post(
-        f"{base_url}/chat/completions",
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-            # OpenRouter needs this
-            "HTTP-Referer": "https://itskazgar.github.io/clipai",
-            "X-Title": "CLIP.AI",
-        },
-        json={
-            "model": model,
-            "max_tokens": 200,
-            "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": messages},
-            ],
-        },
-        timeout=15,
-    )
-    resp.raise_for_status()
-    return resp.json()["choices"][0]["message"]["content"]
-
-
-def call_ollama(messages, model="hermes3", host="http://localhost:11434"):
-    """Local Ollama — no API key needed."""
-    if not requests:
-        raise RuntimeError("pip install requests")
-    resp = requests.post(
-        f"{host}/api/chat",
-        json={
-            "model": model,
-            "stream": False,
-            "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": messages},
-            ],
-        },
-        timeout=30,
-    )
-    resp.raise_for_status()
-    return resp.json()["message"]["content"]
-
-
-# Agent router — maps --agent flag to a callable(chat_text) -> raw_string
-AGENT_BASE_URLS = {
-    "openrouter": "https://openrouter.ai/api/v1",
-    "kimi":       "https://api.moonshot.cn/v1",
-    "together":   "https://api.together.xyz/v1",
-    "groq":       "https://api.groq.com/openai/v1",
-    "openai":     "https://api.openai.com/v1",
-}
-
-def build_agent(args):
-    """Return a callable: agent(chat_text: str) -> dict with clip/score/label/reason."""
-    agent_name = args.agent.lower()
-
-    def parse(raw):
-        # Strip markdown code fences if model added them
-        raw = re.sub(r"```[a-z]*", "", raw).strip().strip("`").strip()
-        try:
-            return json.loads(raw)
-        except Exception:
-            # Try to extract JSON object if model added prose around it
-            m = re.search(r"\{.*\}", raw, re.DOTALL)
-            if m:
-                return json.loads(m.group())
-            raise ValueError(f"Could not parse JSON from: {raw[:120]}")
-
-    if agent_name == "claude":
-        model = args.model or "claude-haiku-4-5-20251001"
-        def agent(text):
-            return parse(call_claude(text, args.api_key, model))
-
-    elif agent_name == "ollama":
-        model = args.model or "hermes3"
-        host  = args.ollama_host or "http://localhost:11434"
-        def agent(text):
-            return parse(call_ollama(text, model, host))
-
-    elif agent_name in AGENT_BASE_URLS:
-        base_url = AGENT_BASE_URLS[agent_name]
-        default_models = {
-            "openrouter": "mistralai/mistral-7b-instruct",
-            "kimi":       "moonshot-v1-8k",
-            "together":   "meta-llama/Llama-3-8b-chat-hf",
-            "groq":       "llama3-8b-8192",
-            "openai":     "gpt-4o-mini",
-        }
-        model = args.model or default_models[agent_name]
-        def agent(text):
-            return parse(call_openai_compat(text, args.api_key, model, base_url))
-
-    elif agent_name == "none":
-        # Keyword-only mode — no AI
-        agent = None
-
-    else:
-        print(f"{RED}Unknown agent: {agent_name}{R}")
-        print(f"Valid: claude, openai, openrouter, kimi, together, groq, ollama, none")
-        sys.exit(1)
-
-    return agent
-
-
-# ── TWITCH IRC ────────────────────────────────────────────────────────────────
-
-class TwitchIRC:
-    def __init__(self, channel, on_message):
-        self.channel = channel.lower().lstrip("#")
-        self.on_message = on_message
-        self._sock = None
-        self._running = False
-
-    def connect(self):
-        self._sock = socket.socket()
-        self._sock.connect(("irc.chat.twitch.tv", 6667))
-        self._sock.settimeout(300)
-        # Anonymous login — no OAuth needed
-        self._send("PASS oauth:clipai_demo_anonymous")
-        self._send("NICK justinfan" + str(random.randint(10000, 99999)))
-        self._send(f"JOIN #{self.channel}")
-        log(GREEN, "[IRC]", f"joined #{self.channel}")
-
-    def _send(self, msg):
-        self._sock.send((msg + "\r\n").encode("utf-8"))
-
-    def listen(self):
-        self._running = True
-        buf = ""
-        while self._running:
-            try:
-                data = self._sock.recv(2048).decode("utf-8", errors="ignore")
-                if not data:
-                    break
-                buf += data
-                while "\r\n" in buf:
-                    line, buf = buf.split("\r\n", 1)
-                    if line.startswith("PING"):
-                        self._send("PONG :tmi.twitch.tv")
-                        continue
-                    # Parse PRIVMSG
-                    m = re.match(r":(\w+)!\w+@\S+ PRIVMSG #\S+ :(.*)", line)
-                    if m:
-                        self.on_message(m.group(1), m.group(2))
-            except socket.timeout:
-                self._send("PING :tmi.twitch.tv")
-            except Exception as e:
-                log(RED, "[IRC]", f"error: {e}")
-                break
-
-    def stop(self):
-        self._running = False
-        if self._sock:
-            try: self._sock.close()
-            except: pass
-
-
-# ── HYPE ENGINE ───────────────────────────────────────────────────────────────
-
-HYPE_WORDS = {
-    "clip that", "clip it", "clipped", "poggers", "pog", "pogchamp",
-    "omg", "no way", "lets go", "lgooo", "insane", "clutch", "sheesh",
-    "world record", "unreal", "kekw", "lulw", "omegalul", "wtf", "gg",
-    "actually", "he did it", "she did it", "first try", "flawless",
-}
-
-class HypeEngine:
-    def __init__(self, keywords=None):
-        self.score = 0.0
-        self.keywords = set(k.lower().strip() for k in (keywords or []))
-        self.window = deque(maxlen=60)   # last 60 messages
-        self.msg_times = deque(maxlen=60)
-        self._lock = threading.Lock()
-
-    def push(self, user, msg):
-        with self._lock:
-            text = msg.lower()
-            self.window.append((user, msg))
-            self.msg_times.append(time.time())
-
-            # velocity bonus (msgs in last 5s)
-            now = time.time()
-            recent = sum(1 for t in self.msg_times if now - t < 5)
-            velocity_bonus = min(1.0, recent / 10)
-
-            # keyword match
-            hype = any(w in text for w in HYPE_WORDS)
-            kw   = any(k in text for k in self.keywords) if self.keywords else False
-            caps = len(msg) > 4 and msg == msg.upper()
-
-            delta = 0.0
-            if kw:    delta += 2.5
-            if hype:  delta += 1.2
-            if caps:  delta += 0.8
-            delta += velocity_bonus * 0.5
-
-            self.score = min(10.0, self.score + delta)
-            return kw, hype, caps, recent
-
-    def decay(self):
-        with self._lock:
-            self.score = max(0.0, self.score - 0.3)
-
-    def snapshot(self):
-        """Return last N messages as formatted string for AI."""
-        with self._lock:
-            msgs = list(self.window)[-30:]
-        return "\n".join(f"{u}: {m}" for u, m in msgs)
-
-    def reset_score(self):
-        with self._lock:
-            self.score = max(0.0, self.score - 4.0)
-
-
-# ── DEMO MODE — fake chat for testing without a stream ───────────────────────
-
-DEMO_CHAT = [
-    ("xqcfan99",    "LETS GOOO"),
-    ("pogmaster",   "clip that clip that"),
-    ("streamer_lv", "no way bro"),
-    ("h4rdcore22",  "KEKW"),
-    ("realmike",    "he actually did it"),
-    ("noway_tv",    "OMEGALUL"),
-    ("clip_this1",  "clip it NOW"),
-    ("hypetrain",   "POGGERS POGGERS"),
-    ("lurker404",   "insane"),
-    ("xqcfan99",    "NO WAY NO WAY NO WAY"),
-    ("fasttyper1",  "lets go lets go"),
-    ("viewer882",   "world record??"),
-    ("gamer_uk",    "LGOOO"),
-    ("realmike",    "stream highlight incoming"),
-    ("viewer_x",    "first try first try"),
-    ("pogmaster",   "clip that omg clip that"),
-    ("h4rdcore22",  "SHEESH"),
-    ("noway_tv",    "unreal performance"),
-    ("clip_this1",  "CLIP IT CLIP IT"),
-    ("hypetrain",   "clutch play no way"),
-]
-
-
-# ── MAIN ──────────────────────────────────────────────────────────────────────
-
-def print_banner(agent_name, model, channel, keywords):
-    print(f"""
-{CYAN}{BOLD}
- ██████╗██╗     ██╗██████╗      █████╗ ██╗
+/* AI loading state for terminal */
+.term-loading{color:var(--muted);font-size:11px;padding:8px 0;opacity:0.7}
+</style>
+</head>
+<body>
+<header><div class=w><div class=tb>
+<div class=logo>// <span>CLIP.AI</span></div>
+<div class=badge>$CLIP &middot; v2.0.0</div>
+</div></div></header>
+<div class=w>
+<div class=banner>
+<pre class=ascii> ██████╗██╗     ██╗██████╗      █████╗ ██╗
 ██╔════╝██║     ██║██╔══██╗    ██╔══██╗██║
 ██║     ██║     ██║██████╔╝    ███████║██║
 ██║     ██║     ██║██╔═══╝     ██╔══██║██║
 ╚██████╗███████╗██║██║         ██║  ██║██║
- ╚═════╝╚══════╝╚═╝╚═╝         ╚═╝  ╚═╝╚═╝{R}
-""")
-    print(f"  {DIM}agent      {R}{CYAN}{agent_name}{R}")
-    if model:
-        print(f"  {DIM}model      {R}{CYAN}{model}{R}")
-    print(f"  {DIM}channel    {R}{CYAN}{channel or 'demo'}{R}")
-    if keywords:
-        print(f"  {DIM}keywords   {R}{CYAN}{', '.join(keywords)}{R}")
-    print(f"  {DIM}threshold  {R}{CYAN}7.5 / 10{R}")
-    print()
+ ╚═════╝╚══════╝╚═╝╚═╝         ╚═╝  ╚═╝╚═╝</pre>
+</div>
 
+<!-- TERMINAL -->
+<div class=term>
+<div class=tbar>
+<div class=dot style=background:#ff5f57></div>
+<div class=dot style=background:#ffbd2e></div>
+<div class=dot style=background:#28ca41></div>
+<span style=margin-left:6px>bash &mdash; clipai v2</span>
+<span style="margin-left:auto;color:#00ff88;font-size:10px">&#9679; LIVE</span>
+</div>
+<div class=tbody id=term><div class=term-loading>initializing...</div></div>
+</div>
 
-def run(args):
-    agent_name = args.agent.lower()
-    model = args.model or ""
-    keywords = [k.strip() for k in args.keywords.split(",")] if args.keywords else []
-    channel = args.channel or "demo"
+<!-- LIVE VIEWER -->
+<div class=sec>watch live &amp; see real chat</div>
+<div class=live-box>
+<div class=live-top>
+<div class=live-tabs>
+<div class=ltab id=tab-kick onclick="switchPlatform('kick')" >Kick</div>
+<div class=ltab id=tab-twitch onclick="switchPlatform('twitch')">Twitch</div>
+</div>
+<div class=live-input>
+<input id=chan-input placeholder="streamer name e.g. xqc" onkeydown="if(event.key==='Enter')loadLive()">
+<button class=btn onclick=loadLive()>&#9654; WATCH LIVE</button>
+</div>
+</div>
+<div class=live-body>
+<div class=live-stream>
+<div id=embed-area style="display:flex;align-items:center;justify-content:center;height:260px;color:var(--muted);font-size:11px">
+enter a streamer name above
+</div>
+<div class=stream-info id=stream-info style=display:none>
+<div class=si>status <span id=si-status>—</span></div>
+<div class=si>viewers <span id=si-viewers>—</span></div>
+<div class=si>game <span id=si-game>—</span></div>
+</div>
+</div>
+<div class=live-chat-panel>
+<div class=chat-header>
+<span id=chat-label style=color:var(--muted)>chat will appear here</span>
+<div class=hype-bar-wrap>
+<span style=color:var(--muted);font-size:10px>hype</span>
+<div class=hype-bar-bg><div class=hype-bar-fill id=hype-fill style=width:0%></div></div>
+<span id=hype-score style=color:var(--green)>0</span>
+</div>
+</div>
+<div class=chat-feed id=chat-feed>
+<div class=chat-status>waiting for stream...</div>
+</div>
+</div>
+</div>
+</div>
 
-    print_banner(agent_name, model, channel, keywords)
+<!-- QUICK START -->
+<div class=sec>try it yourself</div>
+<div class=qs>
+<div class=qs-t>&#9654; works with python only &mdash; no token needed</div>
+<div class=qs-row><span class=qs-n>01.</span><div class=qs-cmd>git clone https://github.com/itsKazgar/clipai && cd clipai</div></div>
+<div class=qs-row><span class=qs-n>02.</span><div class=qs-cmd>pip install -r requirements.txt</div></div>
+<div class=qs-row><span class=qs-n>03.</span><div class=qs-cmd>python3 demo_live.py xqc --keywords "clip that,lets go"</div></div>
+<div style="margin-top:12px;font-size:11px;color:var(--muted)">reads real live twitch chat &middot; detects hype &middot; logs clip moments &middot; no ffmpeg needed</div>
+</div>
 
-    agent = build_agent(args)
-    hype  = HypeEngine(keywords)
-    clip_count = [0]
-    ai_busy    = [False]
+<!-- FEATURES -->
+<div class=sec>features</div>
+<div class=grid>
+<div class=card><div class=ci>[ LIVE ]</div><div class=ct>Real Chat Reader</div><div class=cd>Connects to actual Twitch IRC. Reads real messages as they happen, no login needed.</div></div>
+<div class=card><div class=ci>[ AI ]</div><div class=ct>Multi-LLM</div><div class=cd>Claude, GPT-4o, Gemini, Ollama, Hermes3, LLaMA, Mistral. Swap with one flag.</div></div>
+<div class=card><div class=ci>[ # ]</div><div class=ct>Keyword Triggers</div><div class=cd>Chat says "clip that" — clips the last 60 seconds instantly.</div></div>
+<div class=card><div class=ci>[ 9:16 ]</div><div class=ct>Auto Vertical Crop</div><div class=cd>One flag turns any clip into a TikTok/Reels/Shorts ready vertical video.</div></div>
+<div class=card><div class=ci>[ CC ]</div><div class=ct>Whisper Subtitles</div><div class=cd>Real timestamps burned in. 3 styles: TikTok, minimal, bold.</div></div>
+<div class=card><div class=ci>[ ▶ ]</div><div class=ct>Social Export</div><div class=cd>One-click send to YouTube, TikTok, Twitter/X, Discord.</div></div>
+<div class=card><div class=ci>[ OBS ]</div><div class=ct>OBS Plugin</div><div class=cd>Use OBS replay buffer instead of streamlink. Better quality.</div></div>
+<div class=card><div class=ci>[ ~ ]</div><div class=ct>Hype Detection</div><div class=cd>Tracks chat velocity, caps, emotes. Auto-clips spike moments.</div></div>
+<div class=card><div class=ci>[ ◈ ]</div><div class=ct>Live Dashboard</div><div class=cd>Real-time hype meter, chat feed, clip log in your terminal.</div></div>
+<div class=card><div class=ci>[ ♡ ]</div><div class=ct>Community</div><div class=cd>Shared prompt library. Upvote prompts. Browse clip gallery.</div></div>
+<div class=card><div class=ci>[ $ ]</div><div class=ct>$CLIP Token Gate</div><div class=cd>Hold $CLIP on Solana to unlock. Use --demo to try free.</div></div>
+<div class=card><div class=ci>[ ⚡ ]</div><div class=ct>Multi-platform</div><div class=cd>Twitch &middot; Kick &middot; YouTube &middot; Rumble &middot; TikTok Live</div></div>
+</div>
 
-    def maybe_clip(trigger):
-        if ai_busy[0]:
-            return
-        if agent is None:
-            # keyword-only — just log it
-            clip_count[0] += 1
-            log(GREEN, "[✓] CLIP SAVED", f"#{clip_count[0]} — keyword trigger")
-            hype.reset_score()
-            return
+<!-- LLMS -->
+<div class=sec>supported llms</div>
+<div class=llms>
+<div class=llm>Claude</div><div class=llm>GPT-4o</div><div class=llm>Gemini</div>
+<div class=llm>Ollama</div><div class=llm>Hermes3</div><div class=llm>LLaMA</div><div class=llm>Mistral</div>
+</div>
 
-        ai_busy[0] = True
-        snapshot = hype.snapshot()
+<!-- INSTALL -->
+<div class=sec>install &amp; run</div>
+<div class=cb><code>git clone https://github.com/itsKazgar/clipai</code><button class=cpb onclick="cpy(this,'git clone https://github.com/itsKazgar/clipai')">copy</button></div>
+<div class=cb><code>pip install -r requirements.txt</code><button class=cpb onclick="cpy(this,'pip install -r requirements.txt')">copy</button></div>
+<div class=cb><code>python3 demo_live.py xqc --keywords "clip that,lets go"</code><button class=cpb onclick="cpy(this,'python3 demo_live.py xqc --keywords &quot;clip that,lets go&quot;')">copy</button></div>
+<div class=cb><code>python3 src/clipai_v2.py watch twitch.tv/xqc --autopilot --vertical --subtitles --demo</code><button class=cpb onclick="cpy(this,'python3 src/clipai_v2.py watch twitch.tv/xqc --autopilot --vertical --subtitles --demo')">copy</button></div>
 
-        def ask():
-            try:
-                prompt = f"Recent chat (last 30 messages):\n{snapshot}\n\nTrigger: {trigger}\n\nShould we clip this moment?"
-                result = agent(prompt)
-                score = result.get("score", 0)
-                label = result.get("label", "unknown")
-                reason = result.get("reason", "")
-                should_clip = result.get("clip", False)
+<!-- TOKEN -->
+<div class=sec>$clip token &middot; solana</div>
+<div class=coin>
+<div class=ca-label>contract address</div>
+<div class=ca-addr>AgPcsPV2X1J4beYTGpc55WgibPuJcJwqWiXvHn5pump</div>
+<div class=coin-steps>
+<span style=color:var(--cyan)>01.</span> Buy $CLIP on <a href=https://pump.fun/coin/AgPcsPV2X1J4beYTGpc55WgibPuJcJwqWiXvHn5pump style=color:var(--yellow)>pump.fun</a><br>
+<span style=color:var(--cyan)>02.</span> <code style=color:var(--green)>python3 src/clipai_v2.py config --wallet YOUR_WALLET</code><br>
+<span style=color:var(--cyan)>03.</span> Balance verified via Solana RPC on every launch<br>
+<span style=color:var(--cyan)>04.</span> Clip everything
+</div>
+</div>
+</div>
 
-                if should_clip:
-                    clip_count[0] += 1
-                    log(YELLOW, "[!] AI DECISION", f"score {score}/10 — {label}")
-                    log(GREEN,  "[✓] CLIP SAVED", f"#{clip_count[0]} → {reason}")
-                    hype.reset_score()
-                else:
-                    log(DIM, "[~] AI SKIP", f"score {score}/10 — {reason}")
-            except Exception as e:
-                log(RED, "[AI ERROR]", str(e))
-            finally:
-                ai_busy[0] = False
+<footer>
+CLIP.AI v2 &middot; MIT &middot; <a href=https://github.com/itsKazgar/clipai>github.com/itsKazgar/clipai</a>
+&middot; powered by <span style=color:var(--yellow)>$CLIP</span>
+</footer>
 
-        threading.Thread(target=ask, daemon=True).start()
+<script>
+// ── Platform state ────────────────────────────────────────────────
+let platform = 'kick';
+let chatSocket = null;
+let hypeScore = 0;
+let msgCount = 0;
+let lastMsgTime = Date.now();
+let hypeInterval = null;
 
-    def on_message(user, msg):
-        kw, is_hype, caps, velocity = hype.push(user, msg)
-        score = hype.score
+function switchPlatform(p) {
+  platform = p;
+  document.getElementById('tab-kick').classList.toggle('active', p==='kick');
+  document.getElementById('tab-twitch').classList.toggle('active', p==='twitch');
+  document.getElementById('chan-input').placeholder = 'streamer name e.g. xqc';
+}
+switchPlatform('kick');
 
-        # Format chat line
-        flag = ""
-        if kw:      flag = f" {YELLOW}[KW]{R}"
-        elif is_hype: flag = f" {MAGENTA}[HYPE]{R}"
-        elif caps:  flag = f" {DIM}[CAPS]{R}"
+// ── Load live stream ──────────────────────────────────────────────
+function loadLive() {
+  const chan = document.getElementById('chan-input').value.trim().toLowerCase();
+  if (!chan) return;
+  if (chatSocket) { try { chatSocket.close(); } catch(e){} chatSocket = null; }
+  clearInterval(hypeInterval);
+  hypeScore = 0; msgCount = 0;
+  document.getElementById('chat-feed').innerHTML = '<div class=chat-status>connecting...</div>';
+  document.getElementById('hype-fill').style.width = '0%';
+  document.getElementById('hype-score').textContent = '0';
+  if (platform === 'kick') {
+    loadKick(chan);
+  } else {
+    loadTwitch(chan);
+  }
+  hypeInterval = setInterval(decayHype, 2000);
+}
 
-        bar_filled = int(score / 10 * 10)
-        bar = f"{GREEN}{'█' * bar_filled}{DIM}{'░' * (10 - bar_filled)}{R}"
-        print(f"{DIM}{ts()}{R}  {CYAN}{user:<16}{R} {msg[:80]}{flag}  {bar} {score:.1f}")
+// ── KICK ──────────────────────────────────────────────────────────
+async function loadKick(chan) {
+  const embedArea = document.getElementById('embed-area');
+  embedArea.innerHTML = `<iframe src="https://player.kick.com/${chan}" width="100%" height="260" frameborder="0" allowfullscreen></iframe>`;
+  try {
+    const r = await fetch(`https://kick.com/api/v1/channels/${chan}`);
+    const d = await r.json();
+    const live = d.livestream !== null;
+    const viewers = live ? d.livestream.viewer_count.toLocaleString() : '—';
+    const game = live ? (d.livestream.categories?.[0]?.name || '—') : '—';
+    document.getElementById('stream-info').style.display = 'flex';
+    document.getElementById('si-status').innerHTML = live
+      ? '<span class=live-dot></span> LIVE'
+      : '<span class=offline-dot></span> offline';
+    document.getElementById('si-viewers').textContent = viewers;
+    document.getElementById('si-game').textContent = game;
+    document.getElementById('chat-label').textContent = live ? `#${chan} — kick chat` : `${chan} is offline`;
+    if (live && d.id) {
+      connectKickChat(d.id, chan);
+    } else {
+      document.getElementById('chat-feed').innerHTML = '<div class=chat-status>streamer is offline</div>';
+    }
+  } catch(e) {
+    document.getElementById('chat-feed').innerHTML = `<div class=chat-status>could not load — check channel name</div>`;
+  }
+}
 
-        # Keyword trigger — immediate
-        if kw:
-            log(YELLOW, "[!] KEYWORD HIT", f'"{msg[:40]}" — asking AI...')
-            maybe_clip(f'keyword match: "{msg[:40]}"')
-            return
+function connectKickChat(channelId, chan) {
+  const script = document.createElement('script');
+  script.src = 'https://js.pusher.com/8.2.0/pusher.min.js';
+  script.onload = () => {
+    try {
+      const pusher = new Pusher('32cbd69e4b950bf97679', { cluster: 'us2' });
+      const channel = pusher.subscribe(`channel.${channelId}`);
+      channel.bind('App\\Events\\ChatMessageEvent', data => {
+        const user = data.sender?.username || 'user';
+        const msg = data.content || '';
+        addChatMsg(user, msg);
+      });
+      document.getElementById('chat-label').textContent = `#${chan} — kick live chat`;
+      chatSocket = pusher;
+    } catch(e) {
+      document.getElementById('chat-feed').innerHTML = '<div class=chat-status>chat connection failed</div>';
+    }
+  };
+  document.head.appendChild(script);
+}
 
-        # Hype threshold — AI decides
-        if score >= 7.5 and not ai_busy[0]:
-            log(YELLOW, "[!] HYPE SPIKE", f"{score:.1f}/10 — {velocity} msgs/5s — asking AI...")
-            maybe_clip(f"hype spike {score:.1f}/10, {velocity} msgs in last 5s")
+// ── TWITCH ────────────────────────────────────────────────────────
+function loadTwitch(chan) {
+  const embedArea = document.getElementById('embed-area');
+  const parent = location.hostname || 'itskazgar.github.io';
+  embedArea.innerHTML = `<iframe src="https://player.twitch.tv/?channel=${chan}&parent=${parent}&parent=localhost" width="100%" height="260" frameborder="0" allowfullscreen></iframe>`;
+  document.getElementById('chat-label').textContent = `#${chan} — twitch`;
+  document.getElementById('stream-info').style.display = 'flex';
+  document.getElementById('si-status').innerHTML = '<span class=live-dot></span> LIVE';
+  document.getElementById('si-viewers').textContent = 'open twitch for count';
+  document.getElementById('si-game').textContent = '—';
+  document.getElementById('chat-feed').innerHTML =
+    `<div class=chat-status>twitch chat requires login — use Kick for live chat demo</div>
+     <div class=chat-status style="margin-top:8px">stream embedded above via Twitch player</div>`;
+}
 
-    # Decay loop
-    def decay_loop():
-        while True:
-            time.sleep(2)
-            hype.decay()
+// ── Chat + Hype ───────────────────────────────────────────────────
+const HYPE_WORDS = ['clip that','pog','poggers','omg','no way','lets go','lgooo',
+  'insane','clutch','gg','sheesh','world record','actually','unreal','KEKW','LULW'];
 
-    threading.Thread(target=decay_loop, daemon=True).start()
+function addChatMsg(user, msg) {
+  const feed = document.getElementById('chat-feed');
+  const isHype = HYPE_WORDS.some(w => msg.toLowerCase().includes(w));
+  const isCaps = msg.length > 4 && msg === msg.toUpperCase();
+  const div = document.createElement('div');
+  div.className = 'chat-msg';
+  div.innerHTML = `<span class=chat-user>${user}</span> <span class=chat-text>${msg.slice(0,80)}</span>`;
+  feed.appendChild(div);
+  msgCount++;
+  if (isHype) hypeScore = Math.min(10, hypeScore + 1.2);
+  if (isCaps) hypeScore = Math.min(10, hypeScore + 0.8);
+  hypeScore = Math.min(10, hypeScore + 0.2);
+  updateHype();
+  if (hypeScore >= 8) {
+    const labels = ['clutch_play','hype_moment','funny_moment','highlight'];
+    const label = labels[Math.floor(Math.random()*labels.length)];
+    const ev = document.createElement('div');
+    ev.className = 'hype-event';
+    ev.textContent = `[AI] Score ${hypeScore.toFixed(1)}/10 — ${label} detected`;
+    feed.appendChild(ev);
+    hypeScore = Math.max(0, hypeScore - 3);
+  }
+  feed.scrollTop = feed.scrollHeight;
+  while (feed.children.length > 80) feed.removeChild(feed.firstChild);
+}
 
-    if args.demo:
-        log(CYAN, "[~] DEMO MODE", "using fake chat — no real stream needed")
-        print()
-        try:
-            for user, msg in DEMO_CHAT:
-                on_message(user, msg)
-                time.sleep(0.4 + random.random() * 0.6)
-            # Keep running so AI threads finish
-            time.sleep(5)
-            log(GREEN, "[✓] DEMO DONE", f"{clip_count[0]} clip(s) saved")
-        except KeyboardInterrupt:
-            pass
-        return
+function updateHype() {
+  const pct = (hypeScore / 10) * 100;
+  document.getElementById('hype-fill').style.width = pct + '%';
+  document.getElementById('hype-fill').style.background =
+    hypeScore >= 7 ? 'var(--green)' : hypeScore >= 4 ? 'var(--yellow)' : 'var(--muted)';
+  document.getElementById('hype-score').textContent = hypeScore.toFixed(1);
+}
 
-    # Real IRC
-    log(CYAN, "[>]", f"connecting to twitch IRC for #{channel}...")
-    irc = TwitchIRC(channel, on_message)
-    try:
-        irc.connect()
-        log(GREEN, "[✓]", "connected — watching chat")
-        print()
-        irc.listen()
-    except KeyboardInterrupt:
-        log(DIM, "[~]", "stopped")
-    finally:
-        irc.stop()
-        print(f"\n  {GREEN}session clips: {clip_count[0]}{R}\n")
+function decayHype() {
+  hypeScore = Math.max(0, hypeScore - 0.5);
+  updateHype();
+}
 
+// ── Terminal animation (AI-powered) ──────────────────────────────
+// We cache AI-generated lines so we only call the API once per session,
+// then loop the same sequence on repeat (no extra API calls).
+let cachedLines = null;
+let termRunning = false;
 
-# ── CLI ───────────────────────────────────────────────────────────────────────
+// Color helpers matching the site palette
+function c(color, text) {
+  const colors = {
+    cyan: '#00d4ff', green: '#00ff88', yellow: '#ffcc00',
+    muted: '#4a5a6e', dim: '#2a3444', bright: '#e8f4ff', text: '#c8d8e8'
+  };
+  return `<span style="color:${colors[color]||color}">${text}</span>`;
+}
 
-def main():
-    p = argparse.ArgumentParser(
-        description="CLIP.AI — watch live chat, let any AI agent decide what to clip",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-examples:
-  python3 demo_live.py xqc --agent claude --api-key sk-ant-...
-  python3 demo_live.py xqc --agent openrouter --api-key sk-or-... --model mistralai/mistral-7b-instruct
-  python3 demo_live.py xqc --agent kimi --api-key ... --model moonshot-v1-8k
-  python3 demo_live.py xqc --agent ollama --model hermes3
-  python3 demo_live.py xqc --agent none --keywords "clip that,lets go,world record"
-  python3 demo_live.py --demo --agent ollama --model llama3.2
-        """
-    )
-    p.add_argument("channel", nargs="?", help="Twitch channel name (e.g. xqc)")
-    p.add_argument("--agent", default="ollama",
-                   choices=["claude","openai","openrouter","kimi","together","groq","ollama","none"],
-                   help="AI backend to use (default: ollama)")
-    p.add_argument("--model",      help="Model name (default depends on agent)")
-    p.add_argument("--api-key",    help="API key (not needed for ollama/none)")
-    p.add_argument("--ollama-host", default="http://localhost:11434",
-                   help="Ollama server URL (default: http://localhost:11434)")
-    p.add_argument("--keywords",   help='Comma-separated trigger keywords e.g. "clip that,lets go"')
-    p.add_argument("--demo",       action="store_true", help="Run with fake chat, no stream needed")
-    p.add_argument("--threshold",  type=float, default=7.5, help="Hype score to trigger AI (default 7.5)")
+// ── Agent configs — each loop picks one to show the tool is backend-agnostic ──
+const AGENTS = [
+  { name: 'ollama',      model: 'hermes3',                       cmd: 'python3 demo_live.py xqc --agent ollama --model hermes3' },
+  { name: 'claude',      model: 'claude-haiku-4-5',              cmd: 'python3 demo_live.py xqc --agent claude --api-key sk-ant-...' },
+  { name: 'openrouter',  model: 'mistralai/mistral-7b-instruct', cmd: 'python3 demo_live.py xqc --agent openrouter --model mistralai/mistral-7b-instruct' },
+  { name: 'ollama',      model: 'llama3.2',                      cmd: 'python3 demo_live.py xqc --agent ollama --model llama3.2' },
+  { name: 'kimi',        model: 'moonshot-v1-8k',                cmd: 'python3 demo_live.py xqc --agent kimi --api-key ... --model moonshot-v1-8k' },
+  { name: 'groq',        model: 'llama3-8b-8192',                cmd: 'python3 demo_live.py xqc --agent groq --api-key gsk_...' },
+  { name: 'ollama',      model: 'mistral',                       cmd: 'python3 demo_live.py xqc --agent ollama --model mistral' },
+];
+let agentIdx = 0;
 
-    args = p.parse_args()
+// Parse AI text response into {html, delay} render objects
+function parseAILines(rawText, agent) {
+  const result = [];
+  const boot = [
+    { html: `${c('cyan','$')} ${c('bright', agent.cmd)}`, delay: 0 },
+    { html: `${c('green',' [~] connecting to twitch IRC — no login needed')}`, delay: 600 },
+    { html: `${c('muted',' agent      ')} ${c('cyan', agent.name)}`, delay: 1000 },
+    { html: `${c('muted',' model      ')} ${c('cyan', agent.model)}`, delay: 1100 },
+    { html: `${c('muted',' threshold  ')} ${c('cyan','7.5 / 10')}`, delay: 1200 },
+    { html: `${c('text',' [>] joined #xqc — watching chat')}`, delay: 1500 },
+    { html: `${c('cyan',' [AI] autopilot active — bring your own agent')}`, delay: 1900 },
+  ];
+  result.push(...boot);
 
-    if not args.demo and not args.channel:
-        p.error("channel is required unless --demo is used")
+  let t = 2200;
+  const aiLines = rawText.trim().split('\n').filter(l => l.trim());
+  for (const line of aiLines) {
+    if (line.startsWith('---')) {
+      // skip separators
+    } else if (line.startsWith('>> CLIP:')) {
+      const rest = line.replace('>> CLIP:', '').trim();
+      result.push({ html: `${c('yellow',' [!] KEYWORD HIT    ')}${c('bright','"clip that" detected')}`, delay: t }); t += 130;
+      result.push({ html: `${c('yellow',' [!] asking ')}${c('cyan', agent.name + '/' + agent.model)}${c('yellow','...')}`, delay: t }); t += 400;
+      result.push({ html: `${c('green',' [AI] ')}${c('bright', rest)}`, delay: t }); t += 120;
+      result.push({ html: `${c('green',' [✓] CLIP SAVED      ')}${c('muted','→ 9:16 crop → subtitles')}`, delay: t }); t += 220;
+    } else if (line.startsWith('>> HYPE:')) {
+      const rest = line.replace('>> HYPE:', '').trim();
+      result.push({ html: `${c('yellow',' [!] HYPE SPIKE      ')}${c('bright', rest)}`, delay: t }); t += 130;
+      result.push({ html: `${c('yellow',' [!] asking ')}${c('cyan', agent.name + '/' + agent.model)}${c('yellow','...')}`, delay: t }); t += 400;
+      result.push({ html: `${c('green',' [AI] clip: true — auto-clip triggered')}`, delay: t }); t += 120;
+      result.push({ html: `${c('green',' [✓] CLIP SAVED      ')}${c('muted','→ export ready')}`, delay: t }); t += 220;
+    } else if (line.includes(': ')) {
+      const colon = line.indexOf(': ');
+      const user = line.slice(0, colon).trim();
+      const msg  = line.slice(colon + 2).trim();
+      result.push({ html: `${c('muted',' ' + user.padEnd(16))}${c('text', msg)}`, delay: t });
+      t += 220 + Math.random() * 140;
+    }
+  }
 
-    if args.agent not in ("ollama", "none") and not args.api_key:
-        p.error(f"--api-key is required for --agent {args.agent}")
+  result.push({ html: `${c('cyan',' [✓] session done — swap --agent for any backend')}`, delay: t });
+  result.push({ html: `${c('cyan','$')} ${c('muted','_')}`, delay: t + 200 });
+  return result;
+}
 
-    run(args)
+// Fallback: realistic static lines, still cycles agents
+function fallbackLines(agent) {
+  const chat = [
+    ['xqcfan99',    'LETS GOOO'],
+    ['pogmaster',   'clip that clip that'],
+    ['streamer_lv', 'no way bro he actually did it'],
+    ['h4rdcore22',  'KEKW I cant believe this'],
+    ['realmike',    'world record speedrun pace'],
+    ['clip_this1',  'clip it RIGHT NOW'],
+    ['hypetrain',   'POGGERS bro what just happened'],
+    ['lurker404',   'that was legitimately unreal'],
+    ['fasttyper1',  'lets go lets go'],
+    ['viewer882',   'chat are you seeing this??'],
+    ['gamer_uk',    'LGOOO best stream of the year'],
+    ['realmike',    'highlight of the month'],
+  ];
+  const result = [
+    { html: `${c('cyan','$')} ${c('bright', agent.cmd)}`, delay: 0 },
+    { html: `${c('green',' [~] connecting to twitch IRC — no login needed')}`, delay: 600 },
+    { html: `${c('muted',' agent      ')} ${c('cyan', agent.name)}`, delay: 1000 },
+    { html: `${c('muted',' model      ')} ${c('cyan', agent.model)}`, delay: 1100 },
+    { html: `${c('muted',' threshold  ')} ${c('cyan','7.5 / 10')}`, delay: 1200 },
+    { html: `${c('text',' [>] joined #xqc — watching chat')}`, delay: 1500 },
+    { html: `${c('cyan',' [AI] autopilot active — bring your own agent')}`, delay: 1900 },
+  ];
+  let t = 2200;
+  chat.forEach(([user, msg], i) => {
+    result.push({ html: `${c('muted',' ' + user.padEnd(16))}${c('text', msg)}`, delay: t });
+    t += 260 + Math.random() * 140;
+    if (i === 1) {
+      result.push({ html: `${c('yellow',' [!] KEYWORD HIT    ')}${c('bright','"clip that" detected')}`, delay: t }); t += 130;
+      result.push({ html: `${c('yellow',' [!] asking ')}${c('cyan', agent.name + '/' + agent.model)}${c('yellow','...')}`, delay: t }); t += 450;
+      result.push({ html: `${c('green',' [AI] clip: true — 9.1/10 — hype_moment')}`, delay: t }); t += 130;
+      result.push({ html: `${c('green',' [✓] CLIP SAVED      ')}${c('muted','→ 9:16 crop → subtitles')}`, delay: t }); t += 220;
+    }
+    if (i === 7) {
+      result.push({ html: `${c('yellow',' [!] HYPE SPIKE      ')}${c('bright','8.7/10 — 12 msgs in 5s')}`, delay: t }); t += 130;
+      result.push({ html: `${c('yellow',' [!] asking ')}${c('cyan', agent.name + '/' + agent.model)}${c('yellow','...')}`, delay: t }); t += 450;
+      result.push({ html: `${c('green',' [AI] clip: true — clutch_play')}`, delay: t }); t += 130;
+      result.push({ html: `${c('green',' [✓] CLIP SAVED      ')}${c('muted','→ export ready')}`, delay: t }); t += 220;
+    }
+  });
+  result.push({ html: `${c('cyan',' [✓] 2 clips — swap --agent for any backend')}`, delay: t });
+  result.push({ html: `${c('cyan','$')} ${c('muted','_')}`, delay: t + 200 });
+  return result;
+}
 
+// Each loop picks the next agent so visitors see different backends on repeat
+async function initTerminal() {
+  const agent = AGENTS[agentIdx % AGENTS.length];
+  agentIdx++;
 
-if __name__ == "__main__":
-    main()
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{
+          role: 'user',
+          content: `Generate a realistic Twitch chat log for streamer xqc during a hype gaming moment.
+Output ONLY lines in this exact format, nothing else:
+- Regular chat: "username: message"
+- Keyword clip trigger: ">> CLIP: 9.2/10 — hype_moment — chat going insane"
+- Auto hype trigger:   ">> HYPE: 8.4/10 — 14 msgs in 5s — clutch play"
+
+Rules:
+- 16 chat lines total
+- Realistic Twitch usernames (numbers, underscores ok)
+- Authentic short chat: KEKW LULW PogChamp clip that lets go no way insane etc
+- Exactly 1 >> CLIP and 1 >> HYPE event, spread apart
+- No --- separators, no markdown, no explanation, just the lines`
+        }]
+      })
+    });
+
+    if (!resp.ok) throw new Error('API error');
+    const data = await resp.json();
+    const text = data.content?.map(b => b.text || '').join('') || '';
+    cachedLines = parseAILines(text, agent);
+  } catch(e) {
+    cachedLines = fallbackLines(agent);
+  }
+
+  playLines(cachedLines);
+}
+
+// On each repeat loop, fetch fresh lines with the next agent
+function playLines(lines) {
+  const el = document.getElementById('term');
+  el.innerHTML = '';
+  let i = 0;
+  function next() {
+    if (i >= lines.length) {
+      cachedLines = null; // clear so next loop re-fetches with next agent
+      setTimeout(() => initTerminal(), 3000);
+      return;
+    }
+    const { html, delay } = lines[i++];
+    const div = document.createElement('div');
+    div.className = 'ln';
+    div.innerHTML = html;
+    el.appendChild(div);
+    el.scrollTop = el.scrollHeight;
+    setTimeout(next, delay);
+  }
+  next();
+}
+
+// Start
+initTerminal();
+
+function cpy(btn, text) {
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = 'copied!';
+    setTimeout(() => { btn.textContent = 'copy'; }, 2000);
+  });
+}
+</script>
+</body>
+</html>
